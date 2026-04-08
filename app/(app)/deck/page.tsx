@@ -1,0 +1,124 @@
+"use client";
+
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useWhatIfs } from "@/lib/hooks/useWhatIfs";
+import SwipeDeck from "@/components/deck/SwipeDeck";
+import { Sparkles, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { createClient } from "@/lib/supabase/client";
+
+export default function DeckPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-[80vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-accent-purple" /></div>}>
+      <DeckContent />
+    </Suspense>
+  );
+}
+
+function DeckContent() {
+  const { cards, loading, generating, generateBatch, swipeCard, fetchCards } = useWhatIfs();
+  const searchParams = useSearchParams();
+  const [queuedCount, setQueuedCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const supabase = createClient();
+
+  // Auto-generate if coming from onboarding
+  useEffect(() => {
+    if (searchParams.get("generate") === "true" && cards.length === 0 && !generating) {
+      generateBatch(1);
+    }
+  }, [searchParams, cards.length, generating, generateBatch]);
+
+  // Fetch counts
+  useEffect(() => {
+    async function getCounts() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { count: queued } = await supabase
+        .from("what_ifs")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("status", "queued");
+
+      const { count: total } = await supabase
+        .from("what_ifs")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      setQueuedCount(queued || 0);
+      setTotalCount(total || 0);
+    }
+    getCounts();
+  }, [cards, supabase]);
+
+  function handleSwipe(cardId: string, direction: "left" | "right") {
+    swipeCard(cardId, direction);
+    if (direction === "right") {
+      setQueuedCount((c) => c + 1);
+    }
+  }
+
+  if (loading || generating) {
+    return (
+      <div className="flex min-h-[80vh] flex-col items-center justify-center">
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <Loader2 className="mx-auto h-10 w-10 animate-spin text-accent-purple mb-4" />
+          <p className="text-muted">
+            {generating ? "Generating your what-ifs..." : "Loading your deck..."}
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (cards.length === 0 && totalCount === 0) {
+    return (
+      <div className="flex min-h-[80vh] flex-col items-center justify-center px-4">
+        <Sparkles className="h-12 w-12 text-accent-purple mb-4" />
+        <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold mb-2">
+          No what-ifs yet
+        </h2>
+        <p className="text-muted mb-6 text-center max-w-sm">
+          Complete onboarding first, or generate a batch now.
+        </p>
+        <button
+          onClick={() => generateBatch(1)}
+          disabled={generating}
+          className="rounded-xl gradient-bg px-6 py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+        >
+          Generate 50 What Ifs
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-lg mx-auto">
+      <SwipeDeck
+        cards={cards}
+        onSwipe={handleSwipe}
+        totalCount={totalCount}
+        queuedCount={queuedCount}
+      />
+
+      {cards.length === 0 && totalCount > 0 && (
+        <div className="text-center mt-4">
+          <p className="text-muted mb-4">You&apos;ve swiped through all visible cards!</p>
+          <button
+            onClick={() => generateBatch(Math.ceil(totalCount / 50) + 1)}
+            disabled={generating}
+            className="rounded-xl gradient-bg px-6 py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+          >
+            Generate 50 More
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,94 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import QueueList from "@/components/queue/QueueList";
+import type { WhatIf } from "@/lib/hooks/useWhatIfs";
+import { Send, Loader2 } from "lucide-react";
+
+export default function QueuePage() {
+  const [items, setItems] = useState<WhatIf[]>([]);
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
+
+  const fetchQueue = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("what_ifs")
+      .select("*")
+      .eq("status", "queued")
+      .order("swiped_at", { ascending: false });
+    setItems((data as WhatIf[]) || []);
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchQueue();
+  }, [fetchQueue]);
+
+  async function handleRemove(id: string) {
+    await supabase.from("what_ifs").update({ status: "skipped" }).eq("id", id);
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  async function handleUpdate(id: string, body: string, subject: string) {
+    await supabase
+      .from("what_ifs")
+      .update({ message_body: body, message_subject: subject })
+      .eq("id", id);
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, message_body: body, message_subject: subject } : i))
+    );
+  }
+
+  async function handleSendAll() {
+    // For MVP: mark all as sent and open mailto for each
+    const ids = items.map((i) => i.id);
+    await supabase
+      .from("what_ifs")
+      .update({ status: "sent", sent_at: new Date().toISOString() })
+      .in("id", ids);
+
+    // Copy all messages
+    const allMessages = items
+      .map(
+        (i) =>
+          `--- ${i.emoji} ${i.recipient_name} (${i.category}) ---\n${i.message_subject ? `Subject: ${i.message_subject}\n` : ""}${i.message_body}`
+      )
+      .join("\n\n");
+
+    await navigator.clipboard.writeText(allMessages);
+    alert(`${items.length} messages copied to clipboard and marked as sent!`);
+    setItems([]);
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[80vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-accent-purple" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-8">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="font-[family-name:var(--font-playfair)] text-3xl font-bold">Send Queue</h1>
+          <p className="text-sm text-muted mt-1">{items.length} messages ready to send</p>
+        </div>
+        {items.length > 0 && (
+          <button
+            onClick={handleSendAll}
+            className="flex items-center gap-2 rounded-xl gradient-bg px-5 py-2.5 font-semibold text-white transition hover:opacity-90"
+          >
+            <Send className="h-4 w-4" />
+            Send All
+          </button>
+        )}
+      </div>
+
+      <QueueList items={items} onRemove={handleRemove} onUpdate={handleUpdate} />
+    </div>
+  );
+}
