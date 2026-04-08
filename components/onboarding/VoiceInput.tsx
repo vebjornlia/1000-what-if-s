@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic, MicOff, Send, Keyboard } from "lucide-react";
+import { Mic, MicOff, Send, ArrowUp } from "lucide-react";
 import { useVoiceInput } from "@/lib/hooks/useVoiceInput";
 import { useState, useEffect } from "react";
 
@@ -11,91 +11,95 @@ export default function VoiceInput({
   onSend: (text: string) => void;
   disabled: boolean;
 }) {
-  const { isListening, transcript, interimTranscript, isSupported, startListening, stopListening } =
+  const { isListening, transcript, interimTranscript, isSupported, startListening, stopListening, resetTranscript } =
     useVoiceInput();
-  const [textMode, setTextMode] = useState(false);
   const [textInput, setTextInput] = useState("");
 
-  // Auto-send when voice transcript is finalized
+  // When voice transcript updates, put it in the text input (don't auto-send!)
   useEffect(() => {
-    if (transcript && !isListening) {
-      onSend(transcript);
+    if (transcript) {
+      setTextInput(transcript);
     }
-  }, [transcript, isListening, onSend]);
+  }, [transcript]);
 
-  function handleTextSend() {
-    if (!textInput.trim()) return;
-    onSend(textInput.trim());
+  function handleSend() {
+    const value = textInput.trim();
+    if (!value) return;
+    onSend(value);
     setTextInput("");
+    resetTranscript();
+    if (isListening) stopListening();
   }
 
-  if (textMode || !isSupported) {
-    return (
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={textInput}
-          onChange={(e) => setTextInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleTextSend()}
-          placeholder="Type your response..."
-          disabled={disabled}
-          className="flex-1 rounded-xl border border-border bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-accent-purple/50 disabled:opacity-50"
-        />
-        <button
-          onClick={handleTextSend}
-          disabled={disabled || !textInput.trim()}
-          className="flex h-12 w-12 items-center justify-center rounded-xl gradient-bg text-white transition hover:opacity-90 disabled:opacity-50"
-        >
-          <Send className="h-4 w-4" />
-        </button>
-        {isSupported && (
-          <button
-            onClick={() => setTextMode(false)}
-            className="flex h-12 w-12 items-center justify-center rounded-xl border border-border text-muted transition hover:bg-gray-50"
-          >
-            <Mic className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-    );
+  function handleVoiceToggle() {
+    if (isListening) {
+      stopListening();
+    } else {
+      setTextInput("");
+      resetTranscript();
+      startListening();
+    }
   }
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      {/* Interim transcript */}
-      {(isListening || interimTranscript) && (
-        <p className="text-sm text-muted italic text-center min-h-[20px]">
-          {interimTranscript || "Listening..."}
+    <div className="space-y-2">
+      {/* Interim voice feedback */}
+      {isListening && interimTranscript && (
+        <p className="text-xs text-accent-purple italic text-center animate-pulse">
+          {interimTranscript}
         </p>
       )}
 
-      <div className="flex items-center gap-3">
-        <button
-          onClick={isListening ? stopListening : startListening}
-          disabled={disabled}
-          className={`relative flex h-16 w-16 items-center justify-center rounded-full text-white transition disabled:opacity-50 ${
-            isListening
-              ? "bg-red-500 hover:bg-red-600"
-              : "gradient-bg hover:opacity-90"
-          }`}
-        >
-          {isListening && (
-            <span className="absolute inset-0 rounded-full animate-ping gradient-bg opacity-30" />
-          )}
-          {isListening ? <MicOff className="h-6 w-6 relative z-10" /> : <Mic className="h-6 w-6" />}
-        </button>
+      <div className="flex items-end gap-2">
+        {/* Text input */}
+        <div className="flex-1 relative">
+          <textarea
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder={isListening ? "Listening... tap mic to stop" : "Type your answer..."}
+            disabled={disabled || isListening}
+            rows={1}
+            className="w-full rounded-xl border border-border bg-white px-4 py-3 pr-12 text-sm outline-none focus:ring-2 focus:ring-accent-purple/30 disabled:opacity-50 resize-none min-h-[48px] max-h-[120px]"
+            style={{ height: "auto" }}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = "auto";
+              target.style.height = Math.min(target.scrollHeight, 120) + "px";
+            }}
+          />
+        </div>
 
+        {/* Voice button */}
+        {isSupported && (
+          <button
+            onClick={handleVoiceToggle}
+            disabled={disabled}
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition disabled:opacity-50 ${
+              isListening
+                ? "bg-red-500 text-white animate-pulse"
+                : "border border-border text-muted hover:bg-gray-50"
+            }`}
+            title={isListening ? "Stop recording" : "Start recording"}
+          >
+            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </button>
+        )}
+
+        {/* Send button */}
         <button
-          onClick={() => setTextMode(true)}
-          className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted transition hover:bg-gray-50"
+          onClick={handleSend}
+          disabled={disabled || !textInput.trim()}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl gradient-bg text-white transition hover:opacity-90 disabled:opacity-30"
         >
-          <Keyboard className="h-4 w-4" />
+          <ArrowUp className="h-5 w-5" />
         </button>
       </div>
-
-      <p className="text-xs text-muted">
-        {isListening ? "Tap to stop" : "Tap to talk"}
-      </p>
     </div>
   );
 }

@@ -34,23 +34,26 @@ export function useVoiceInput(): UseVoiceInputReturn {
     if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
+    recognition.continuous = true;       // Keep listening until manually stopped
     recognition.interimResults = true;
     recognition.lang = navigator.language || "en-US";
+
+    let fullTranscript = "";
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       let interim = "";
       let final = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      for (let i = 0; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
-          final += result[0].transcript;
+          final += result[0].transcript + " ";
         } else {
           interim += result[0].transcript;
         }
       }
-      if (final) setTranscript(final);
+      fullTranscript = final.trim();
+      if (fullTranscript) setTranscript(fullTranscript);
       setInterimTranscript(interim);
     };
 
@@ -68,6 +71,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
     recognition.start();
     setIsListening(true);
     setTranscript("");
+    setInterimTranscript("");
   }, []);
 
   const stopListening = useCallback(() => {
