@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export interface WhatIf {
@@ -23,7 +23,8 @@ export function useWhatIfs() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   const fetchCards = useCallback(async () => {
     setLoading(true);
@@ -49,7 +50,7 @@ export function useWhatIfs() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ batchSize: 50, batchNumber }),
+        body: JSON.stringify({ batchSize: 20, batchNumber }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);

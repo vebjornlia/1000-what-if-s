@@ -1,41 +1,58 @@
 import { openrouter, MODEL } from "@/lib/ai/openrouter";
 import { ONBOARDING_SYSTEM_PROMPT, PROFILE_EXTRACTION_PROMPT } from "@/lib/ai/prompts";
 
+export const maxDuration = 30;
+
 export async function POST(request: Request) {
-  const { messages, action } = await request.json();
+  try {
+    const { messages, action } = await request.json();
 
-  // Profile extraction
-  if (action === "extract_profile") {
-    const conversationText = messages
-      .map((m: { role: string; content: string }) => `${m.role}: ${m.content}`)
-      .join("\n");
+    // Profile extraction
+    if (action === "extract_profile") {
+      const conversationText = messages
+        .map((m: { role: string; content: string }) => `${m.role}: ${m.content}`)
+        .join("\n");
 
+      const response = await openrouter.chat.completions.create({
+        model: MODEL,
+        max_tokens: 1024,
+        messages: [
+          { role: "system", content: PROFILE_EXTRACTION_PROMPT },
+          { role: "user", content: conversationText },
+        ],
+      });
+
+      const text = response.choices[0]?.message?.content || "{}";
+
+      // Try to parse, handling markdown code blocks
+      let profile;
+      try {
+        profile = JSON.parse(text);
+      } catch {
+        const match = text.match(/\{[\s\S]*\}/);
+        profile = match ? JSON.parse(match[0]) : {};
+      }
+
+      return Response.json({ profile });
+    }
+
+    // Regular conversation
     const response = await openrouter.chat.completions.create({
       model: MODEL,
-      max_tokens: 1024,
+      max_tokens: 512,
       messages: [
-        { role: "system", content: PROFILE_EXTRACTION_PROMPT },
-        { role: "user", content: conversationText },
+        { role: "system", content: ONBOARDING_SYSTEM_PROMPT },
+        ...messages.map((m: { role: string; content: string }) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
       ],
     });
 
-    const text = response.choices[0]?.message?.content || "{}";
-    return Response.json({ profile: JSON.parse(text) });
+    const text = response.choices[0]?.message?.content || "";
+    return Response.json({ message: text });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return Response.json({ error: message }, { status: 500 });
   }
-
-  // Regular conversation
-  const response = await openrouter.chat.completions.create({
-    model: MODEL,
-    max_tokens: 512,
-    messages: [
-      { role: "system", content: ONBOARDING_SYSTEM_PROMPT },
-      ...messages.map((m: { role: string; content: string }) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
-    ],
-  });
-
-  const text = response.choices[0]?.message?.content || "";
-  return Response.json({ message: text });
 }

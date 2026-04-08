@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import QueueList from "@/components/queue/QueueList";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
@@ -9,7 +9,8 @@ import { Send, Loader2 } from "lucide-react";
 export default function QueuePage() {
   const [items, setItems] = useState<WhatIf[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   const fetchQueue = useCallback(async () => {
     setLoading(true);
