@@ -26,6 +26,7 @@ export default function LoginPage() {
       return;
     }
 
+    // Middleware will redirect to /onboarding if no profile exists
     router.push("/deck");
     router.refresh();
   }

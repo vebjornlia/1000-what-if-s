@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Loader2 } from "lucide-react";
 import ChatBubble from "./ChatBubble";
 import VoiceInput from "./VoiceInput";
+import ProfileReview, { type Profile } from "./ProfileReview";
 import { createClient } from "@/lib/supabase/client";
 
 interface Message {
@@ -13,14 +14,18 @@ interface Message {
   content: string;
 }
 
+type Phase = "chat" | "extracting" | "review" | "saving";
+
 export default function OnboardingFlow() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
-  const [isExtracting, setIsExtracting] = useState(false);
+  const [phase, setPhase] = useState<Phase>("chat");
+  const [extractedProfile, setExtractedProfile] = useState<Profile | null>(null);
+  const [questionCount, setQuestionCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
   const initialSent = useRef(false);
 
   // Scroll to bottom on new messages
@@ -28,92 +33,127 @@ export default function OnboardingFlow() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  // Send initial greeting
+  // Send initial greeting — AI starts the interview
   useEffect(() => {
     if (initialSent.current) return;
     initialSent.current = true;
 
     async function greet() {
       setIsLoading(true);
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: "Hi, I just signed up. Let's go!" }],
-        }),
-      });
-      const data = await res.json();
-      setMessages([{ role: "assistant", content: data.message }]);
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: [{ role: "user", content: "Start the interview. Ask me your first question." }],
+          }),
+        });
+        const data = await res.json();
+        if (data.message) {
+          setMessages([{ role: "assistant", content: cleanMessage(data.message) }]);
+          setQuestionCount(1);
+        }
+      } catch (err) {
+        console.error("Greeting failed:", err);
+      }
       setIsLoading(false);
     }
 
     greet();
   }, []);
 
+  // Clean AI response — remove [INTERVIEW_COMPLETE] marker from display
+  function cleanMessage(text: string) {
+    return text.replace(/\[INTERVIEW_COMPLETE\]/g, "").trim();
+  }
+
   const handleSend = useCallback(
     async (text: string) => {
-      if (isLoading || isComplete) return;
+      if (isLoading || phase !== "chat") return;
 
       const userMsg: Message = { role: "user", content: text };
       const updated = [...messages, userMsg];
       setMessages(updated);
       setIsLoading(true);
 
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updated }),
-      });
-      const data = await res.json();
-      const aiMsg: Message = { role: "assistant", content: data.message };
-      const withAi = [...updated, aiMsg];
-      setMessages(withAi);
-      setIsLoading(false);
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: updated }),
+        });
+        const data = await res.json();
+        const aiMsg: Message = { role: "assistant", content: cleanMessage(data.message || "") };
+        const withAi = [...updated, aiMsg];
+        setMessages(withAi);
+        setQuestionCount((c) => c + 1);
 
-      // Check if AI says it has enough info (after 5+ exchanges)
-      const userMsgCount = withAi.filter((m) => m.role === "user").length;
-      const doneIndicators = ["generate", "enough", "ready to", "1,000", "1000", "what-ifs"];
-      const lastMsg = data.message.toLowerCase();
-      if (userMsgCount >= 3 && doneIndicators.some((d) => lastMsg.includes(d))) {
-        setIsComplete(true);
+        // Check if AI signaled interview is complete
+        if (data.message?.includes("[INTERVIEW_COMPLETE]")) {
+          // Auto-extract after a short delay
+          setTimeout(() => handleExtract(withAi), 1500);
+        }
+      } catch (err) {
+        console.error("Chat failed:", err);
       }
+      setIsLoading(false);
     },
-    [messages, isLoading, isComplete]
+    [messages, isLoading, phase]
   );
 
-  async function handleFinish() {
-    setIsExtracting(true);
+  async function handleExtract(chatMessages?: Message[]) {
+    setPhase("extracting");
+    const msgs = chatMessages || messages;
 
     try {
-      // Extract profile
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, action: "extract_profile" }),
+        body: JSON.stringify({ messages: msgs, action: "extract_profile" }),
       });
       const data = await res.json();
+      setExtractedProfile(data.profile);
+      setPhase("review");
+    } catch (err) {
+      console.error("Profile extraction failed:", err);
+      setPhase("chat"); // Fall back to chat if extraction fails
+    }
+  }
 
-      // Save to Supabase
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  async function handleConfirmProfile(editedProfile: Profile) {
+    setPhase("saving");
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase.from("profiles").upsert({
           id: user.id,
           raw_conversation: messages,
-          structured_profile: data.profile,
-          display_name: data.profile.display_name || "Friend",
+          structured_profile: editedProfile,
+          display_name: (editedProfile.display_name as string) || "Friend",
         });
+
+        // Set cookie so middleware knows profile exists
+        document.cookie = "x-has-profile=1; path=/; max-age=86400";
       }
 
       router.push("/deck?generate=true");
     } catch (err) {
-      console.error("Profile extraction failed:", err);
-      setIsExtracting(false);
+      console.error("Save failed:", err);
+      setPhase("review");
     }
   }
 
-  if (isExtracting) {
+  function handleRedo() {
+    setMessages([]);
+    setExtractedProfile(null);
+    setPhase("chat");
+    setQuestionCount(0);
+    initialSent.current = false;
+  }
+
+  // Extracting state
+  if (phase === "extracting" || phase === "saving") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#FCFCFA] px-4">
         <motion.div
@@ -121,21 +161,21 @@ export default function OnboardingFlow() {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
         >
-          <div className="relative mx-auto mb-6 h-20 w-20">
-            <Sparkles className="absolute inset-0 h-20 w-20 text-accent-purple animate-pulse" />
-          </div>
+          <Sparkles className="mx-auto mb-6 h-16 w-16 text-accent-purple animate-pulse" />
           <h2 className="font-[family-name:var(--font-playfair)] text-3xl font-bold mb-3">
-            Generating your 1,000 what-ifs...
+            {phase === "extracting" ? "Analyzing your interview..." : "Saving your profile..."}
           </h2>
           <p className="text-muted">
-            Analyzing your profile and finding opportunities you&apos;d never think of.
+            {phase === "extracting"
+              ? "Building your profile from our conversation"
+              : "Setting up your 1,000 what-ifs"}
           </p>
           <div className="mt-8 mx-auto w-64 h-2 rounded-full bg-gray-200 overflow-hidden">
             <motion.div
               className="h-full gradient-bg rounded-full"
               initial={{ width: "0%" }}
-              animate={{ width: "100%" }}
-              transition={{ duration: 8, ease: "easeInOut" }}
+              animate={{ width: phase === "saving" ? "100%" : "70%" }}
+              transition={{ duration: phase === "saving" ? 2 : 4, ease: "easeInOut" }}
             />
           </div>
         </motion.div>
@@ -143,15 +183,41 @@ export default function OnboardingFlow() {
     );
   }
 
+  // Review state
+  if (phase === "review" && extractedProfile) {
+    return (
+      <div className="min-h-screen bg-[#FCFCFA] px-4 py-8">
+        <ProfileReview
+          profile={extractedProfile}
+          onConfirm={handleConfirmProfile}
+          onRedo={handleRedo}
+        />
+      </div>
+    );
+  }
+
+  // Chat state (the interview)
+  const userMsgCount = messages.filter((m) => m.role === "user").length;
+  const showFinishButton = userMsgCount >= 3;
+
   return (
     <div className="flex min-h-screen flex-col bg-[#FCFCFA]">
       {/* Header */}
-      <div className="border-b border-border bg-white/80 backdrop-blur-md px-4 py-4 text-center">
-        <h1 className="font-[family-name:var(--font-playfair)] text-xl font-bold">
-          <Sparkles className="inline h-5 w-5 text-accent-purple mr-1 -mt-1" />
-          Tell us about you
-        </h1>
-        <p className="text-sm text-muted mt-1">Talk or type — 2 minutes is all we need</p>
+      <div className="border-b border-border bg-white/80 backdrop-blur-md px-4 py-4">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="font-[family-name:var(--font-playfair)] text-xl font-bold flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-accent-purple" />
+              The Interview
+            </h1>
+            <p className="text-xs text-muted mt-0.5">Tell me about yourself — 2 minutes is all I need</p>
+          </div>
+          {questionCount > 0 && (
+            <span className="text-xs text-muted bg-gray-100 rounded-full px-3 py-1">
+              Q{Math.min(questionCount, 6)} of ~6
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
@@ -177,16 +243,17 @@ export default function OnboardingFlow() {
 
       {/* Input area */}
       <div className="border-t border-border bg-white px-4 py-4">
-        <div className="mx-auto max-w-2xl">
-          {isComplete ? (
+        <div className="mx-auto max-w-2xl space-y-3">
+          <VoiceInput onSend={handleSend} disabled={isLoading} />
+
+          {showFinishButton && (
             <button
-              onClick={handleFinish}
-              className="w-full rounded-2xl gradient-bg py-4 text-lg font-semibold text-white transition hover:opacity-90"
+              onClick={() => handleExtract()}
+              disabled={isLoading}
+              className="w-full rounded-xl border border-accent-purple/30 bg-accent-purple/5 py-2.5 text-sm font-medium text-accent-purple transition hover:bg-accent-purple/10 disabled:opacity-50"
             >
-              Generate My 1,000 What Ifs ✨
+              That&apos;s enough — show me my profile →
             </button>
-          ) : (
-            <VoiceInput onSend={handleSend} disabled={isLoading} />
           )}
         </div>
       </div>

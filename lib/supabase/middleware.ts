@@ -30,7 +30,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Protected routes — redirect to login if not authenticated
-  const protectedPaths = ["/onboarding", "/deck", "/queue", "/dashboard", "/settings"];
+  const protectedPaths = ["/onboarding", "/deck", "/queue", "/dashboard", "/profile", "/settings"];
   const isProtected = protectedPaths.some((p) => request.nextUrl.pathname.startsWith(p));
 
   if (isProtected && !user) {
@@ -39,7 +39,36 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If logged in and hitting login/signup, redirect to deck or onboarding
+  // If logged in, check if profile exists (skip for onboarding itself and API routes)
+  if (user && isProtected && request.nextUrl.pathname !== "/onboarding") {
+    // Use a cookie cache to avoid DB hit on every request
+    const hasProfileCookie = request.cookies.get("x-has-profile")?.value;
+
+    if (hasProfileCookie !== "1") {
+      // Check DB for profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("structured_profile")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile?.structured_profile) {
+        // No profile — redirect to onboarding
+        const url = request.nextUrl.clone();
+        url.pathname = "/onboarding";
+        return NextResponse.redirect(url);
+      }
+
+      // Profile exists — set cookie so we don't check again this session
+      supabaseResponse.cookies.set("x-has-profile", "1", {
+        path: "/",
+        maxAge: 60 * 60 * 24, // 24 hours
+        httpOnly: false,
+      });
+    }
+  }
+
+  // If logged in and hitting login/signup, redirect appropriately
   if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup")) {
     const url = request.nextUrl.clone();
     url.pathname = "/deck";

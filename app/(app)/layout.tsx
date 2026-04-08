@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Sparkles, Layers, Send, BarChart3, LogOut } from "lucide-react";
+import { Sparkles, Layers, Send, BarChart3, User, LogOut } from "lucide-react";
 
 const navItems = [
   { href: "/deck", label: "Deck", icon: Layers },
   { href: "/queue", label: "Queue", icon: Send },
   { href: "/dashboard", label: "Stats", icon: BarChart3 },
+  { href: "/profile", label: "Profile", icon: User },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
