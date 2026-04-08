@@ -90,6 +90,7 @@ export async function POST(request: Request) {
           category?: string;
           recipient_name?: string;
           recipient_description?: string;
+          recipient_contact?: string;
           message_subject?: string;
           message_body?: string;
         },
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
         category: opp.category || "General",
         recipient_name: opp.recipient_name || "Unknown",
         recipient_description: opp.recipient_description || "",
+        recipient_contact: opp.recipient_contact || "",
         message_subject: opp.message_subject || "",
         message_body: opp.message_body || "",
         status: "unseen",

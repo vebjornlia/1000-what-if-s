@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Edit3, Trash2, Copy, Check, Mail, Send } from "lucide-react";
+import { Edit3, Trash2, Copy, Check, Mail } from "lucide-react";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import MessageEditor from "./MessageEditor";
 import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
@@ -32,10 +32,10 @@ export default function QueueList({
 
   function handleSendViaGmail(card: WhatIf) {
     openGmailCompose({
+      to: card.recipient_contact || "",
       subject: getMessageSubject(card),
       body: card.message_body,
     });
-    // Mark as sent after opening Gmail
     onMarkSent(card.id);
   }
 
@@ -69,8 +69,20 @@ export default function QueueList({
                       {card.category}
                     </span>
                   </div>
-                  <h4 className="font-semibold truncate">{card.recipient_name}</h4>
-                  <p className="text-sm text-muted mt-1 line-clamp-2">{card.message_body}</p>
+                  <h4 className="font-semibold">{card.recipient_name}</h4>
+
+                  {card.recipient_description && (
+                    <p className="text-xs text-muted mt-0.5">{card.recipient_description}</p>
+                  )}
+
+                  {card.recipient_contact && (
+                    <p className="text-xs text-accent-purple mt-0.5 flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
+                      {card.recipient_contact}
+                    </p>
+                  )}
+
+                  <p className="text-sm text-muted mt-2 leading-relaxed line-clamp-5">{card.message_body}</p>
 
                   {/* Send via Gmail button */}
                   <button
@@ -78,7 +90,7 @@ export default function QueueList({
                     className="mt-3 flex items-center gap-1.5 rounded-lg gradient-bg px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
                   >
                     <Mail className="h-3 w-3" />
-                    Open in Gmail
+                    {card.recipient_contact ? "Send via Gmail" : "Open in Gmail"}
                   </button>
                 </div>
 

@@ -2,7 +2,7 @@
 
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
+import { Copy, Check, Mail, ExternalLink } from "lucide-react";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 
 export default function SwipeCard({
@@ -14,7 +14,6 @@ export default function SwipeCard({
   onSwipe: (direction: "left" | "right") => void;
   isTop: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-300, 300], [-20, 20]);
@@ -27,7 +26,6 @@ export default function SwipeCard({
 
     if (info.offset.x > threshold || info.velocity.x > velocityThreshold) {
       animate(x, 600, { duration: 0.3 });
-      // Haptic feedback
       if (navigator.vibrate) navigator.vibrate(30);
       setTimeout(() => onSwipe("right"), 200);
     } else if (info.offset.x < -threshold || info.velocity.x < -velocityThreshold) {
@@ -50,6 +48,8 @@ export default function SwipeCard({
 
   if (!isTop) return null;
 
+  const isEmail = card.recipient_contact?.includes("@");
+
   return (
     <motion.div
       className="absolute inset-0 z-20 cursor-grab active:cursor-grabbing"
@@ -63,62 +63,65 @@ export default function SwipeCard({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
     >
-      <div className="h-full rounded-3xl border border-border bg-white p-6 shadow-lg flex flex-col">
+      <div className="h-full rounded-3xl border border-border bg-white p-5 shadow-lg flex flex-col">
         {/* Swipe indicators */}
         <motion.div
-          className="absolute top-6 right-6 rounded-lg bg-green-100 px-4 py-1.5 text-sm font-bold text-green-600 rotate-12 z-30"
+          className="absolute top-5 right-5 rounded-lg bg-green-100 px-4 py-1.5 text-sm font-bold text-green-600 rotate-12 z-30"
           style={{ opacity: sendOpacity }}
         >
           SEND ✨
         </motion.div>
         <motion.div
-          className="absolute top-6 left-6 rounded-lg bg-red-100 px-4 py-1.5 text-sm font-bold text-red-500 -rotate-12 z-30"
+          className="absolute top-5 left-5 rounded-lg bg-red-100 px-4 py-1.5 text-sm font-bold text-red-500 -rotate-12 z-30"
           style={{ opacity: skipOpacity }}
         >
           SKIP
         </motion.div>
 
         {/* Category + emoji */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-3xl">{card.emoji}</span>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-2xl">{card.emoji}</span>
           <span className="rounded-full gradient-bg px-3 py-0.5 text-xs font-semibold text-white">
             {card.category}
           </span>
         </div>
 
         {/* Recipient */}
-        <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1">To:</p>
-        <h3 className="font-[family-name:var(--font-playfair)] text-2xl font-bold mb-1">
+        <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold mb-1">
           {card.recipient_name}
         </h3>
+
+        {/* Recipient description — who they are and why they matter */}
         {card.recipient_description && (
-          <p className="text-xs text-muted mb-4">{card.recipient_description}</p>
+          <p className="text-xs text-muted mb-2 leading-relaxed">{card.recipient_description}</p>
         )}
 
-        {/* Message preview */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Contact info */}
+        {card.recipient_contact && (
+          <div className="flex items-center gap-1 mb-3">
+            {isEmail ? (
+              <Mail className="h-3 w-3 text-accent-purple shrink-0" />
+            ) : (
+              <ExternalLink className="h-3 w-3 text-accent-purple shrink-0" />
+            )}
+            <span className="text-xs text-accent-purple truncate">{card.recipient_contact}</span>
+          </div>
+        )}
+
+        {/* Message — full text, scrollable if needed */}
+        <div className="flex-1 overflow-y-auto min-h-0">
           {card.message_subject && (
-            <p className="text-sm font-semibold mb-2">
-              Re: {card.message_subject}
+            <p className="text-sm font-semibold mb-1.5">
+              {card.message_subject}
             </p>
           )}
-          <p className={`text-sm text-muted leading-relaxed ${!expanded ? "line-clamp-4" : ""}`}>
+          <p className="text-sm text-muted leading-relaxed">
             {card.message_body}
           </p>
         </div>
 
         {/* Actions */}
-        <div className="mt-4 flex items-center justify-between pt-3 border-t border-border">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded(!expanded);
-            }}
-            className="flex items-center gap-1 text-xs font-medium text-accent-purple"
-          >
-            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            {expanded ? "Collapse" : "Read full message"}
-          </button>
+        <div className="mt-3 flex items-center justify-end pt-2 border-t border-border">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -127,7 +130,7 @@ export default function SwipeCard({
             className="flex items-center gap-1 text-xs font-medium text-muted hover:text-foreground transition"
           >
             {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-            {copied ? "Copied!" : "Copy"}
+            {copied ? "Copied!" : "Copy message"}
           </button>
         </div>
       </div>

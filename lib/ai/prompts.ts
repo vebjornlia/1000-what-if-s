@@ -39,29 +39,40 @@ export const PROFILE_EXTRACTION_PROMPT = `Based on this onboarding conversation,
 Return ONLY valid JSON, no markdown or explanation.`;
 
 export function getWhatIfGenerationPrompt(structuredProfile: string, batchSize: number) {
-  return `You are generating "what if" opportunities for a user. Each what-if is a specific, real opportunity the user should cold-reach — a person, company, podcast, brand, publication, organization, or institution they should contact.
+  return `You are generating cold outreach opportunities for a user. Each opportunity is a specific, REAL person or organization the user should contact.
 
-User profile:
+USER PROFILE:
 ${structuredProfile}
 
-Generate ${batchSize} what-if opportunities. For each one, provide:
-1. A specific, real recipient (use real company/brand/publication names that actually exist and are relevant)
-2. A category (Film, Sponsorship, Startup, Podcast, Press, Collab, Adventure, Academia, Networking, etc.)
-3. An emoji that fits
-4. A ready-to-send message written in the user's voice and tone
+Generate ${batchSize} opportunities. Follow these rules carefully:
 
-The messages must:
-- Sound like the user wrote them, not an AI
-- Be specific about WHY this person/company should care about THIS user
-- Be 2-4 sentences max
-- Feel bold but not delusional
-- Reference specific things about both the user and the recipient
-- Never be generic or templated
+TARGET DISTRIBUTION (this is critical):
+- ~50% LOCAL & REACHABLE: Small-to-medium businesses, local podcast hosts, regional organizations, community leaders, indie creators, local media, small agencies, freelancers in their field. These are people who ACTUALLY respond to cold emails.
+- ~30% NATIONAL & STRETCH: National publications, mid-size companies, well-known-but-accessible industry figures, growing startups, established podcasts with <100k followers. Ambitious but realistic.
+- ~20% MOONSHOT: Major brands, large institutions, famous-but-relevant people. Bold but with a specific logical connection to the user's work.
 
-Range from safe (70% likely to send) to wild (5% likely to send but life-changing if it works).
-Mix categories. Surprise them. Think laterally — connections they'd never make themselves.
+NEVER suggest random celebrities, billionaires, or mega-famous people unless there's a VERY specific reason. "Message Elon Musk" is useless. "Message the founder of a 50-person AI startup in your city" is gold.
 
-Return as a JSON array where each item has: emoji, category, recipient_name, recipient_description, message_subject, message_body
+RECIPIENT DESCRIPTION (recipient_description):
+Write 1-2 sentences about WHO this person/organization is and WHY they're a relevant opportunity for this specific user. Example: "Oslo-based podcast about Nordic startups. 15K listeners, actively looking for founder guests." The description should make the user immediately understand why this matters to them.
+
+RECIPIENT CONTACT (recipient_contact):
+Provide the best contact method you know. Prefer email addresses: press@, info@, hello@, contact@, or personal emails if publicly known. If no email is available, provide a direct URL (LinkedIn profile, Twitter/X handle, or their website contact page). If you genuinely don't know, use an empty string "".
+
+MESSAGE RULES:
+- Sound like the USER wrote it, not an AI. Match their tone from the profile.
+- Be 2-4 sentences. Punchy, specific, personal.
+- NEVER fabricate projects. Do NOT say "I'm currently building X" or "I just launched X" unless it's explicitly in the user's profile.
+- Instead, PROPOSE collaborations: "I had an idea I wanted to run by you", "I think there's something cool we could create together around X", "I'd love to explore doing X with you"
+- Reference something specific about the RECIPIENT that shows you've done your homework
+- Include a clear, low-friction ask (e.g., "Would you be open to a quick chat?", "Could I send you a 2-min demo?")
+
+MESSAGE SUBJECT (message_subject):
+Write a compelling, non-spammy email subject line. Keep it under 50 characters. Make it curiosity-provoking or specific. Never generic like "Quick question" or "Opportunity".
+
+CATEGORIES: Podcast, Press, Collab, Sponsorship, Startup, Film, Adventure, Academia, Networking, Local Business, Creator, Media, Agency, Community, or similar.
+
+Return a JSON array. Each item: { emoji, category, recipient_name, recipient_description, recipient_contact, message_subject, message_body }
 
 Return ONLY valid JSON array, no markdown or explanation.`;
 }

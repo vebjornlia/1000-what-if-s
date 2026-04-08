@@ -10,6 +10,7 @@ export interface WhatIf {
   emoji: string;
   recipient_name: string;
   recipient_description: string;
+  recipient_contact: string;
   message_subject: string;
   message_body: string;
   status: string;
