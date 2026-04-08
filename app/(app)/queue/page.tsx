@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import QueueList from "@/components/queue/QueueList";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
-import { Send, Loader2 } from "lucide-react";
+import { Mail, Loader2 } from "lucide-react";
+import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
 
 export default function QueuePage() {
   const [items, setItems] = useState<WhatIf[]>([]);
@@ -42,25 +43,32 @@ export default function QueuePage() {
     );
   }
 
-  async function handleSendAll() {
-    // For MVP: mark all as sent and open mailto for each
-    const ids = items.map((i) => i.id);
+  async function handleMarkSent(id: string) {
     await supabase
       .from("what_ifs")
       .update({ status: "sent", sent_at: new Date().toISOString() })
-      .in("id", ids);
+      .eq("id", id);
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }
 
-    // Copy all messages
-    const allMessages = items
-      .map(
-        (i) =>
-          `--- ${i.emoji} ${i.recipient_name} (${i.category}) ---\n${i.message_subject ? `Subject: ${i.message_subject}\n` : ""}${i.message_body}`
-      )
-      .join("\n\n");
+  function handleSendAllViaGmail() {
+    // Open Gmail compose for each message with a small delay
+    items.forEach((card, i) => {
+      setTimeout(() => {
+        openGmailCompose({
+          subject: getMessageSubject(card),
+          body: card.message_body,
+        });
+      }, i * 500); // 500ms stagger so browser doesn't block popups
+    });
 
-    await navigator.clipboard.writeText(allMessages);
-    alert(`${items.length} messages copied to clipboard and marked as sent!`);
-    setItems([]);
+    // Mark all as sent
+    const ids = items.map((i) => i.id);
+    supabase
+      .from("what_ifs")
+      .update({ status: "sent", sent_at: new Date().toISOString() })
+      .in("id", ids)
+      .then(() => setItems([]));
   }
 
   if (loading) {
@@ -80,16 +88,21 @@ export default function QueuePage() {
         </div>
         {items.length > 0 && (
           <button
-            onClick={handleSendAll}
+            onClick={handleSendAllViaGmail}
             className="flex items-center gap-2 rounded-xl gradient-bg px-5 py-2.5 font-semibold text-white transition hover:opacity-90"
           >
-            <Send className="h-4 w-4" />
-            Send All
+            <Mail className="h-4 w-4" />
+            Open All in Gmail
           </button>
         )}
       </div>
 
-      <QueueList items={items} onRemove={handleRemove} onUpdate={handleUpdate} />
+      <QueueList
+        items={items}
+        onRemove={handleRemove}
+        onUpdate={handleUpdate}
+        onMarkSent={handleMarkSent}
+      />
     </div>
   );
 }

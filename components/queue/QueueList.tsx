@@ -2,18 +2,21 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Edit3, Trash2, Copy, Check, ExternalLink } from "lucide-react";
+import { Edit3, Trash2, Copy, Check, Mail, Send } from "lucide-react";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import MessageEditor from "./MessageEditor";
+import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
 
 export default function QueueList({
   items,
   onRemove,
   onUpdate,
+  onMarkSent,
 }: {
   items: WhatIf[];
   onRemove: (id: string) => void;
   onUpdate: (id: string, body: string, subject: string) => void;
+  onMarkSent: (id: string) => void;
 }) {
   const [editing, setEditing] = useState<WhatIf | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -27,10 +30,13 @@ export default function QueueList({
     setTimeout(() => setCopiedId(null), 2000);
   }
 
-  function handleMailto(card: WhatIf) {
-    const subject = encodeURIComponent(card.message_subject || `Reaching out — ${card.recipient_name}`);
-    const body = encodeURIComponent(card.message_body);
-    window.open(`mailto:?subject=${subject}&body=${body}`, "_blank");
+  function handleSendViaGmail(card: WhatIf) {
+    openGmailCompose({
+      subject: getMessageSubject(card),
+      body: card.message_body,
+    });
+    // Mark as sent after opening Gmail
+    onMarkSent(card.id);
   }
 
   if (items.length === 0) {
@@ -65,6 +71,15 @@ export default function QueueList({
                   </div>
                   <h4 className="font-semibold truncate">{card.recipient_name}</h4>
                   <p className="text-sm text-muted mt-1 line-clamp-2">{card.message_body}</p>
+
+                  {/* Send via Gmail button */}
+                  <button
+                    onClick={() => handleSendViaGmail(card)}
+                    className="mt-3 flex items-center gap-1.5 rounded-lg gradient-bg px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+                  >
+                    <Mail className="h-3 w-3" />
+                    Open in Gmail
+                  </button>
                 </div>
 
                 <div className="flex flex-col gap-1.5 shrink-0">
@@ -85,13 +100,6 @@ export default function QueueList({
                     ) : (
                       <Copy className="h-3.5 w-3.5" />
                     )}
-                  </button>
-                  <button
-                    onClick={() => handleMailto(card)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted hover:bg-gray-50 transition"
-                    title="Open email"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
                   </button>
                   <button
                     onClick={() => onRemove(card.id)}
