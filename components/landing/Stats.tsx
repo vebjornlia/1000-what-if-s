@@ -1,12 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import AnimatedCounter from "../shared/AnimatedCounter";
+import { Zap, Target, PenTool } from "lucide-react";
 
-const stats = [
-  { value: 147000, suffix: "+", label: "What-ifs generated" },
-  { value: 23, suffix: "%", label: "Average response rate" },
-  { value: 4200, suffix: "+", label: "Messages actually sent" },
+const highlights = [
+  { icon: Zap, label: "AI-generated opportunities", description: "Personalized to your skills, goals, and style" },
+  { icon: Target, label: "Smart email discovery", description: "Finds the best contact for each recipient" },
+  { icon: PenTool, label: "Messages that sound like you", description: "Not generic templates — your voice, your tone" },
 ];
 
 export default function Stats() {
@@ -14,7 +14,7 @@ export default function Stats() {
     <section className="py-24 px-4">
       <div className="mx-auto max-w-4xl">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-12 text-center">
-          {stats.map((stat, i) => (
+          {highlights.map((item, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 30 }}
@@ -22,10 +22,11 @@ export default function Stats() {
               viewport={{ once: true, amount: 0.1 }}
               transition={{ delay: i * 0.1 }}
             >
-              <p className="font-[family-name:var(--font-playfair)] text-5xl font-bold gradient-text">
-                <AnimatedCounter target={stat.value} suffix={stat.suffix} />
+              <item.icon className="mx-auto h-10 w-10 text-accent-purple mb-3" />
+              <p className="font-[family-name:var(--font-playfair)] text-xl font-bold">
+                {item.label}
               </p>
-              <p className="mt-2 text-muted font-medium">{stat.label}</p>
+              <p className="mt-2 text-muted text-sm">{item.description}</p>
             </motion.div>
           ))}
         </div>

@@ -23,7 +23,7 @@ const demoCards = [
     category: "Startup",
     recipient: "Y Combinator",
     message:
-      "YC team — We're building the 'Tinder for opportunities.' AI analyzes who you are and generates 1,000 cold messages you should send. 400 beta users, 23% response rate. Applying for W25.",
+      "YC team — We're building the 'Tinder for opportunities.' AI analyzes who you are and generates 1,000 cold messages you should send. Would love to tell you more — applying for W25.",
   },
   {
     emoji: "🤝",
@@ -37,7 +37,7 @@ const demoCards = [
     category: "Press",
     recipient: "TechCrunch",
     message:
-      "Hey TC — I built an AI that writes 1,000 personalized cold outreach messages and lets you Tinder-swipe through them. Early users are getting replies from Netflix, Spotify, and YC partners. Story?",
+      "Hey TC — I built an AI that writes 1,000 personalized cold outreach messages and lets you Tinder-swipe through them. It finds the best email for each contact and drafts messages in your voice. Story?",
   },
   {
     emoji: "🎨",

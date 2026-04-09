@@ -2,21 +2,24 @@
 
 import { motion } from "framer-motion";
 
-const testimonials = [
+const examples = [
   {
-    quote: "I sent a message to A24 and they actually replied. This app is unreal.",
-    name: "Sarah K.",
-    role: "Filmmaker",
+    emoji: "🎬",
+    who: "A filmmaker",
+    description:
+      "gets matched with indie production studios, film festival organizers, and local podcast hosts covering the creative scene.",
   },
   {
-    quote: "Got on 3 podcasts in my first week. I never would have cold-emailed any of them.",
-    name: "Marcus T.",
-    role: "Startup Founder",
+    emoji: "🚀",
+    who: "A startup founder",
+    description:
+      "discovers niche podcast hosts, relevant angel investors, and potential co-marketing partners they never would have found.",
   },
   {
-    quote: "The AI sounds more like me than I do. It's scary good.",
-    name: "Priya M.",
-    role: "Designer & Artist",
+    emoji: "🎨",
+    who: "A freelance designer",
+    description:
+      "finds agencies looking for contract work, local businesses needing a rebrand, and creators looking for collaborators.",
   },
 ];
 
@@ -30,11 +33,11 @@ export default function Testimonials() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.1 }}
         >
-          People are actually <span className="gradient-text">sending it</span>
+          Opportunities you&apos;d <span className="gradient-text">never find alone</span>
         </motion.h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-          {testimonials.map((t, i) => (
+          {examples.map((ex, i) => (
             <motion.div
               key={i}
               className="rounded-2xl border border-border bg-[#FCFCFA] p-6"
@@ -43,11 +46,9 @@ export default function Testimonials() {
               viewport={{ once: true, amount: 0.1 }}
               transition={{ delay: i * 0.1 }}
             >
-              <p className="mb-4 text-lg leading-relaxed">&ldquo;{t.quote}&rdquo;</p>
-              <div>
-                <p className="font-semibold">{t.name}</p>
-                <p className="text-sm text-muted">{t.role}</p>
-              </div>
+              <p className="text-3xl mb-3">{ex.emoji}</p>
+              <p className="font-semibold mb-2">{ex.who}</p>
+              <p className="text-sm text-muted leading-relaxed">{ex.description}</p>
             </motion.div>
           ))}
         </div>

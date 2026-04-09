@@ -76,3 +76,55 @@ Return a JSON array. Each item: { emoji, category, recipient_name, recipient_des
 
 Return ONLY valid JSON array, no markdown or explanation.`;
 }
+
+export function getEmailDiscoveryPrompt(
+  recipientName: string,
+  recipientDescription: string,
+  category: string,
+  existingContact: string
+) {
+  return `You are an email research specialist. Your job is to find the BEST email address to cold-contact a specific person or organization — the one most likely to get a response.
+
+RECIPIENT:
+- Name: ${recipientName}
+- Description: ${recipientDescription}
+- Category: ${category}
+- Existing contact info: ${existingContact || "none"}
+
+YOUR TASK:
+1. Classify this recipient: individual person, small business, podcast, large org, media outlet, etc.
+2. Based on the name and description, identify the most likely domain/website.
+3. Generate 2-5 email candidates ranked by RESPONSE PROBABILITY.
+4. For each candidate, explain WHY it's likely to work and rate your confidence.
+
+EMAIL SCORING (highest to lowest response probability):
+- PERSONAL email of the actual person (firstname@domain.com, firstname.lastname@domain.com) → highest response rate
+- ROLE-SPECIFIC email tied to their function (podcast@domain.com, bookings@domain.com, editor@domain.com) → good response rate
+- GENERIC business email (hello@domain.com, contact@domain.com) → moderate response rate
+- CATCH-ALL generic email (info@domain.com, press@domain.com) → low response rate
+
+EMAIL PATTERN RULES:
+- For individuals: try firstname@domain.com, firstname.lastname@domain.com, first initial + lastname@domain.com
+- For podcasts: try podcast name as domain, hello@, booking@, or host's personal email
+- For small businesses: try hello@, owner's firstname@
+- For media/press: try the journalist's name-based email at the publication domain
+- For startups: try founder's firstname@company.com
+
+IMPORTANT:
+- Only suggest emails at domains you can reasonably infer from the description. Don't guess random domains.
+- If the existing contact is already a good personal email, keep it as the top candidate.
+- If the existing contact is a URL, try to extract the domain and build email patterns from it.
+- Be honest about confidence. "high" means you're quite sure this is a real, working email. "medium" means the pattern is standard and likely correct. "low" means it's a reasonable guess.
+
+Return a JSON array of candidates, ranked best to worst:
+[
+  {
+    "email": "the@email.com",
+    "confidence": "high" | "medium" | "low",
+    "reasoning": "Why this email is likely correct and likely to get a response",
+    "type": "personal" | "role" | "generic" | "guessed"
+  }
+]
+
+Return ONLY valid JSON array, no markdown or explanation.`;
+}

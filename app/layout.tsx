@@ -19,6 +19,19 @@ export const metadata: Metadata = {
   title: "1000 What Ifs — Life-Changing Opportunities You'd Never Think to Pursue",
   description:
     "AI-powered cold outreach that writes itself. Get 1,000 personalized opportunities and swipe to send.",
+  openGraph: {
+    title: "1000 What Ifs",
+    description:
+      "AI-powered cold outreach that writes itself. Get 1,000 personalized opportunities and swipe to send.",
+    type: "website",
+    siteName: "1000 What Ifs",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "1000 What Ifs",
+    description:
+      "AI-powered cold outreach that writes itself. Get 1,000 personalized opportunities and swipe to send.",
+  },
 };
 
 export default function RootLayout({

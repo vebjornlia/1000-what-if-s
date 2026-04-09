@@ -3,6 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+export interface DiscoveredEmail {
+  email: string;
+  confidence: "high" | "medium" | "low";
+  reasoning: string;
+  type: string; // "personal" | "role" | "generic" | "guessed"
+}
+
 export interface WhatIf {
   id: string;
   card_index: number;
@@ -17,6 +24,9 @@ export interface WhatIf {
   swiped_at: string | null;
   sent_at: string | null;
   got_reply: boolean;
+  discovered_emails: DiscoveredEmail[] | null;
+  resolved_contact: string | null;
+  email_discovery_status: string | null; // "pending" | "searching" | "found" | "not_found" | "manual"
 }
 
 export function useWhatIfs() {
@@ -70,6 +80,15 @@ export function useWhatIfs() {
       .eq("id", cardId);
 
     setCards((prev) => prev.filter((c) => c.id !== cardId));
+
+    // Auto-discover email on right swipe (fire and forget)
+    if (direction === "right") {
+      fetch("/api/discover-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ whatIfIds: [cardId] }),
+      }).catch(() => {});
+    }
 
     // Fetch more if running low
     if (cards.length <= 5) {

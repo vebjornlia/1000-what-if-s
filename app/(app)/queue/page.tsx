@@ -24,9 +24,20 @@ export default function QueuePage() {
     setLoading(false);
   }, [supabase]);
 
+  // Poll for email discovery updates
   useEffect(() => {
     fetchQueue();
-  }, [fetchQueue]);
+    const interval = setInterval(() => {
+      const hasPending = items.some(
+        (i) =>
+          !i.email_discovery_status ||
+          i.email_discovery_status === "pending" ||
+          i.email_discovery_status === "searching"
+      );
+      if (hasPending) fetchQueue();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [fetchQueue, items]);
 
   async function handleRemove(id: string) {
     await supabase.from("what_ifs").update({ status: "skipped" }).eq("id", id);
@@ -39,7 +50,23 @@ export default function QueuePage() {
       .update({ message_body: body, message_subject: subject })
       .eq("id", id);
     setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, message_body: body, message_subject: subject } : i))
+      prev.map((i) =>
+        i.id === id ? { ...i, message_body: body, message_subject: subject } : i
+      )
+    );
+  }
+
+  async function handleUpdateContact(id: string, email: string) {
+    await supabase
+      .from("what_ifs")
+      .update({ resolved_contact: email, email_discovery_status: "manual" })
+      .eq("id", id);
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === id
+          ? { ...i, resolved_contact: email, email_discovery_status: "manual" }
+          : i
+      )
     );
   }
 
@@ -52,17 +79,16 @@ export default function QueuePage() {
   }
 
   function handleSendAllViaGmail() {
-    // Open Gmail compose for each message with a small delay
     items.forEach((card, i) => {
       setTimeout(() => {
         openGmailCompose({
+          to: card.resolved_contact || card.recipient_contact || "",
           subject: getMessageSubject(card),
           body: card.message_body,
         });
-      }, i * 500); // 500ms stagger so browser doesn't block popups
+      }, i * 500);
     });
 
-    // Mark all as sent
     const ids = items.map((i) => i.id);
     supabase
       .from("what_ifs")
@@ -83,8 +109,12 @@ export default function QueuePage() {
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-[family-name:var(--font-playfair)] text-3xl font-bold">Send Queue</h1>
-          <p className="text-sm text-muted mt-1">{items.length} messages ready to send</p>
+          <h1 className="font-[family-name:var(--font-playfair)] text-3xl font-bold">
+            Send Queue
+          </h1>
+          <p className="text-sm text-muted mt-1">
+            {items.length} messages ready to send
+          </p>
         </div>
         {items.length > 0 && (
           <button
@@ -102,6 +132,7 @@ export default function QueuePage() {
         onRemove={handleRemove}
         onUpdate={handleUpdate}
         onMarkSent={handleMarkSent}
+        onUpdateContact={handleUpdateContact}
       />
     </div>
   );

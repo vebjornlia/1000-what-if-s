@@ -10,9 +10,10 @@ export default function MessageEditor({
   onClose,
 }: {
   card: WhatIf;
-  onSave: (body: string, subject: string) => void;
+  onSave: (body: string, subject: string, contact?: string) => void;
   onClose: () => void;
 }) {
+  const [to, setTo] = useState(card.resolved_contact || card.recipient_contact || "");
   const [subject, setSubject] = useState(card.message_subject || "");
   const [body, setBody] = useState(card.message_body);
 
@@ -29,6 +30,15 @@ export default function MessageEditor({
         </div>
 
         <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-muted mb-1">To</label>
+            <input
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="recipient@email.com"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent-purple/50"
+            />
+          </div>
           <div>
             <label className="block text-xs font-medium text-muted mb-1">Subject</label>
             <input
@@ -56,7 +66,7 @@ export default function MessageEditor({
             Cancel
           </button>
           <button
-            onClick={() => onSave(body, subject)}
+            onClick={() => onSave(body, subject, to)}
             className="flex items-center gap-1 rounded-lg gradient-bg px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
           >
             <Check className="h-4 w-4" />

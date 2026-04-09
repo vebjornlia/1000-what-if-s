@@ -5,18 +5,25 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Edit3, Trash2, Copy, Check, Mail } from "lucide-react";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import MessageEditor from "./MessageEditor";
+import ContactWidget from "./ContactWidget";
 import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
+
+function getEffectiveEmail(card: WhatIf): string {
+  return card.resolved_contact || card.recipient_contact || "";
+}
 
 export default function QueueList({
   items,
   onRemove,
   onUpdate,
   onMarkSent,
+  onUpdateContact,
 }: {
   items: WhatIf[];
   onRemove: (id: string) => void;
   onUpdate: (id: string, body: string, subject: string) => void;
   onMarkSent: (id: string) => void;
+  onUpdateContact: (id: string, email: string) => void;
 }) {
   const [editing, setEditing] = useState<WhatIf | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -32,7 +39,7 @@ export default function QueueList({
 
   function handleSendViaGmail(card: WhatIf) {
     openGmailCompose({
-      to: card.recipient_contact || "",
+      to: getEffectiveEmail(card),
       subject: getMessageSubject(card),
       body: card.message_body,
     });
@@ -75,22 +82,19 @@ export default function QueueList({
                     <p className="text-xs text-muted mt-0.5">{card.recipient_description}</p>
                   )}
 
-                  {card.recipient_contact && (
-                    <p className="text-xs text-accent-purple mt-0.5 flex items-center gap-1">
-                      <Mail className="h-3 w-3" />
-                      {card.recipient_contact}
-                    </p>
-                  )}
+                  <ContactWidget
+                    card={card}
+                    onSetManual={(email) => onUpdateContact(card.id, email)}
+                  />
 
                   <p className="text-sm text-muted mt-2 leading-relaxed line-clamp-5">{card.message_body}</p>
 
-                  {/* Send via Gmail button */}
                   <button
                     onClick={() => handleSendViaGmail(card)}
                     className="mt-3 flex items-center gap-1.5 rounded-lg gradient-bg px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
                   >
                     <Mail className="h-3 w-3" />
-                    {card.recipient_contact ? "Send via Gmail" : "Open in Gmail"}
+                    {getEffectiveEmail(card) ? "Send via Gmail" : "Open in Gmail"}
                   </button>
                 </div>
 
@@ -130,8 +134,11 @@ export default function QueueList({
       {editing && (
         <MessageEditor
           card={editing}
-          onSave={(body, subject) => {
+          onSave={(body, subject, contact) => {
             onUpdate(editing.id, body, subject);
+            if (contact !== undefined) {
+              onUpdateContact(editing.id, contact);
+            }
             setEditing(null);
           }}
           onClose={() => setEditing(null)}
