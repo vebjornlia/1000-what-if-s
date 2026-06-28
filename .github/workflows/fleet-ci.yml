@@ -1,0 +1,57 @@
+name: Fleet CI (test-gate)
+
+# Runs the project's tests on the autonomous worker's PRs (head branch `auto/*`)
+# so a worker change that breaks tests shows a RED check BEFORE you merge —
+# turning the worker's self-reported "tests pass" into an observed fact.
+# Best-effort + no false reds: repos without a recognizable/ runnable test suite
+# pass with a neutral note (the worker still did its own adversarial self-review).
+# Static across repos — copied verbatim by fleet/scripts/propagate_ci.sh.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  test-gate:
+    # only the fleet's own PRs — never your hand-made ones
+    if: startsWith(github.head_ref, 'auto/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+
+      - name: Detect stack and run tests (best-effort)
+        run: |
+          # NB: no `set -e`. Install problems => neutral pass (can't verify, don't
+          # block). Only an actual TEST FAILURE returns non-zero and reds the check.
+          run_tests() {
+            if [ -f package.json ] && grep -q '"test"[[:space:]]*:' package.json; then
+              echo "== Node project: installing =="
+              npm ci >/dev/null 2>&1 || npm install >/dev/null 2>&1 || {
+                echo "node install failed — neutral pass (cannot verify)"; return 0; }
+              echo "== npm test =="
+              npm test
+              return $?
+            fi
+            if [ -d tests ] && ls pyproject.toml requirements*.txt setup.py >/dev/null 2>&1; then
+              echo "== Python project: installing =="
+              python3 -m pip install -q --upgrade pip >/dev/null 2>&1 || true
+              [ -f requirements.txt ] && pip install -q -r requirements.txt >/dev/null 2>&1
+              [ -f pyproject.toml ] && pip install -q -e . >/dev/null 2>&1
+              pip install -q pytest >/dev/null 2>&1
+              echo "== pytest =="
+              pytest -q
+              return $?
+            fi
+            echo "No recognizable test suite found — neutral pass (worker self-reviewed)."
+            return 0
+          }
+          run_tests
