@@ -10,14 +10,15 @@ name: Fleet CI (test-gate)
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  workflow_dispatch: {}   # lets us reproduce a deploy build on demand
 
 permissions:
   contents: read
 
 jobs:
   test-gate:
-    # only the fleet's own PRs — never your hand-made ones
-    if: startsWith(github.head_ref, 'auto/')
+    # the fleet's own PRs, or a manual dispatch (for reproducing a deploy build)
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'auto/')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -55,3 +56,23 @@ jobs:
             return 0
           }
           run_tests
+
+      - name: Build check (catch deploy-breaking changes)
+        run: |
+          # A FAILURE here is a real RED check: the change would break the deploy
+          # (Render Docker build / Vercel npm build). Best-effort: only builds what
+          # exists, so repos with nothing to build pass cleanly.
+          rc=0
+          if [ -f Dockerfile ]; then
+            echo "== docker build (reproduces the Render/Docker deploy) =="
+            docker build -t fleet-ci-build-check . || rc=1
+          fi
+          if [ -f package.json ] && grep -q '"build"[[:space:]]*:' package.json; then
+            echo "== npm run build (reproduces the Vercel/Node build) =="
+            (npm ci || npm install) >/dev/null 2>&1 || true
+            npm run build || rc=1
+          fi
+          if [ "$rc" -ne 0 ]; then
+            echo "BUILD FAILED — this change would break the deploy; blocking merge."; exit 1
+          fi
+          echo "build check OK (or nothing to build)."
