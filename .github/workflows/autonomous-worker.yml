@@ -43,7 +43,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh issue list -R "${{ github.repository }}" --label fleet-task --state open \
-            --json number,title,body --limit 10 > /tmp/fleet_tasks.json 2>/dev/null || echo "[]" > /tmp/fleet_tasks.json
+            --json number,title,body --limit 30 > /tmp/fleet_tasks.json 2>/dev/null || echo "[]" > /tmp/fleet_tasks.json
           echo "Open fleet-task issues:"; cat /tmp/fleet_tasks.json
 
       - name: Autonomous worker (deep, multi-agent)
@@ -108,8 +108,9 @@ jobs:
 
             STEP 1 — SCOPE & PLAN (read-only explore/plan)
             - Read /tmp/fleet_tasks.json YOURSELF. If it lists issues, the work is the
-              most actionable one — note its number for "Closes #N". If empty ([]), find
-              work yourself.
+              most actionable one — and if issues carry a [P#] priority tag, prefer the
+              LOWEST number (P1 = most critical, do those first). Note its number for
+              "Closes #N". If empty ([]), find work yourself.
             - Preferred: launch ONE read-only explore/plan sub-agent (inspection only, NO
               edits). Fallback: survey yourself. Produce: (a) the single best SAFE,
               well-scoped unit of work — a real bug fix, a missing/weak test, a clear
@@ -164,7 +165,9 @@ jobs:
         id: pr
         if: steps.guard.outputs.skip != 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          # FLEET_PAT (a real user PAT) so the PR triggers CI — PRs opened with the
+          # default github.token are deliberately NOT allowed to trigger workflows.
+          GH_TOKEN: ${{ secrets.FLEET_PAT || github.token }}
           TIER: "work"
         run: bash .github/scripts/open_pr.sh
 
