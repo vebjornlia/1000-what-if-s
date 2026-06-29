@@ -1,6 +1,7 @@
 import { openrouter, MODEL_CHEAP } from "@/lib/ai/openrouter";
 import { createClient } from "@/lib/supabase/server";
 import { getEmailDiscoveryPrompt } from "@/lib/ai/prompts";
+import { resolveBestEmail } from "@/lib/utils/email";
 import type { DiscoveredEmail } from "@/lib/hooks/useWhatIfs";
 
 export const maxDuration = 30;
@@ -88,16 +89,16 @@ export async function POST(request: Request) {
           candidates = match ? JSON.parse(match[0]) : [];
         }
 
-        if (!Array.isArray(candidates)) candidates = [];
-
-        const bestEmail =
-          candidates.length > 0 ? candidates[0].email : whatIf.recipient_contact || "";
-        const status = candidates.length > 0 ? "found" : "not_found";
+        const { validCandidates, bestEmail, status } =
+          resolveBestEmail<DiscoveredEmail>(
+            candidates,
+            whatIf.recipient_contact || ""
+          );
 
         await supabase
           .from("what_ifs")
           .update({
-            discovered_emails: candidates,
+            discovered_emails: validCandidates,
             resolved_contact: bestEmail,
             email_discovery_status: status,
           })
@@ -105,7 +106,7 @@ export async function POST(request: Request) {
 
         results.push({
           id: whatIf.id,
-          discovered_emails: candidates,
+          discovered_emails: validCandidates,
           resolved_contact: bestEmail,
           email_discovery_status: status,
         });
