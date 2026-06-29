@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveBestEmail } from "./email.ts";
+import { resolveBestEmail, getMessageSubject } from "./email.ts";
 
 test("returns the first valid candidate as found", () => {
   const result = resolveBestEmail(
@@ -52,4 +52,34 @@ test("tolerates non-array input from the model", () => {
 test("trims surrounding whitespace on the chosen email", () => {
   const result = resolveBestEmail([{ email: "  spaced@x.com  " }]);
   assert.equal(result.bestEmail, "spaced@x.com");
+});
+
+test("getMessageSubject uses the provided subject when present", () => {
+  assert.equal(
+    getMessageSubject({ recipient_name: "Ada", message_subject: "Hello there" }),
+    "Hello there"
+  );
+});
+
+test("getMessageSubject trims surrounding whitespace on the subject", () => {
+  assert.equal(
+    getMessageSubject({ recipient_name: "Ada", message_subject: "  Hello  " }),
+    "Hello"
+  );
+});
+
+test("getMessageSubject falls back to default for a missing subject", () => {
+  assert.equal(
+    getMessageSubject({ recipient_name: "Ada" }),
+    "Quick question for Ada"
+  );
+});
+
+test("getMessageSubject falls back to default for a blank/whitespace subject", () => {
+  for (const blank of ["", "   ", "\n\t"]) {
+    assert.equal(
+      getMessageSubject({ recipient_name: "Ada", message_subject: blank }),
+      "Quick question for Ada"
+    );
+  }
 });
