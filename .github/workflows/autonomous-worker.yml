@@ -34,7 +34,7 @@ jobs:
         id: guard
         env:
           ANTHROPIC_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          RESERVE_CEILING: "1.0"
+          RESERVE_CEILING: "0.9"
         run: bash .github/scripts/reserve_guard.sh
 
       - name: Collect tasks you assigned (issues labeled fleet-task)
@@ -182,7 +182,7 @@ jobs:
           REPO="${{ github.repository }}"
           RUN_URL="https://github.com/${REPO}/actions/runs/${{ github.run_id }}"
           if [ "${{ steps.guard.outputs.skip }}" = "true" ]; then
-            MSG="🤖 ${REPO}: skipped (Max-plan reserve ceiling reached)"
+            MSG="⏸ ${REPO}: paused — plan near limit (5h ${{ steps.guard.outputs.util5h }} / 7d ${{ steps.guard.outputs.util7d }}); auto-resumes when a window resets"
           elif [ "${{ job.status }}" != "success" ]; then
             MSG="⚠️ ${REPO}: worker run FAILED — no changes made, nothing broken. Logs: ${RUN_URL}"
           else
