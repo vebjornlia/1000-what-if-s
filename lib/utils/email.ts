@@ -65,6 +65,11 @@ export function getMessageSubject(card: {
   message_subject?: string;
   category?: string;
 }) {
-  if (card.message_subject) return card.message_subject;
+  // A whitespace-only subject is still "truthy", so trim before deciding:
+  // an empty/blank subject must fall back to the default rather than send a
+  // blank subject line. Return the trimmed value so no stray edge whitespace
+  // leaks into the email subject.
+  const subject = card.message_subject?.trim();
+  if (subject) return subject;
   return `Quick question for ${card.recipient_name}`;
 }
