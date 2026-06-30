@@ -13,7 +13,7 @@ fi
 [[ -z "$TITLE" ]] && TITLE="chore: autonomous improvement"
 [[ -f /tmp/pr_body.md ]] || echo "Autonomous worker change." > /tmp/pr_body.md
 
-git config user.email "fleet@vebjorn-os"
+git config user.email "vebjornlia@gmail.com"
 git config user.name "Autonomous Fleet"
 BRANCH="auto/work-${GITHUB_RUN_ID}"
 git checkout -b "$BRANCH"
