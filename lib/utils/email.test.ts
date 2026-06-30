@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveBestEmail, getMessageSubject } from "./email.ts";
+import { resolveBestEmail, getMessageSubject, getCopyText } from "./email.ts";
 
 test("returns the first valid candidate as found", () => {
   const result = resolveBestEmail(
@@ -81,5 +81,38 @@ test("getMessageSubject falls back to default for a blank/whitespace subject", (
       getMessageSubject({ recipient_name: "Ada", message_subject: blank }),
       "Quick question for Ada"
     );
+  }
+});
+
+test("getCopyText includes the provided subject line", () => {
+  assert.equal(
+    getCopyText({
+      recipient_name: "Ada",
+      message_subject: "Hello there",
+      message_body: "Hi!",
+    }),
+    "Subject: Hello there\n\nHi!"
+  );
+});
+
+test("getCopyText uses the fallback subject when subject is missing or blank", () => {
+  for (const blank of [undefined, "", "   ", "\n\t"]) {
+    assert.equal(
+      getCopyText({
+        recipient_name: "Ada",
+        message_subject: blank,
+        message_body: "Hi!",
+      }),
+      "Subject: Quick question for Ada\n\nHi!"
+    );
+  }
+});
+
+test("getCopyText subject matches what getMessageSubject would send", () => {
+  // Copy path and Gmail-send path must agree on the subject line, including
+  // the blank-subject fallback (the original inconsistency).
+  for (const subject of ["Re: collab", "   ", "", undefined]) {
+    const card = { recipient_name: "Ada", message_subject: subject, message_body: "Hi!" };
+    assert.equal(getCopyText(card), `Subject: ${getMessageSubject(card)}\n\nHi!`);
   }
 });
