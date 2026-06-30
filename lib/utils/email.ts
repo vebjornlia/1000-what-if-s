@@ -28,6 +28,23 @@ export function openMailto(options: {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
+ * Validates a trimmed email string. The structural regex alone is too loose:
+ * it accepts dots in places they can never appear in a real address — runs of
+ * consecutive dots ("a@x..com"), and dots leading or trailing the local part
+ * or the domain (".a@x.com", "a.@x.com", "a@x.com."). Such strings are not
+ * deliverable, so the AI email-discovery must never report them as "found".
+ */
+function isValidEmail(email: string): boolean {
+  if (!EMAIL_RE.test(email)) return false;
+  if (email.includes("..")) return false;
+  // EMAIL_RE guarantees exactly one "@", so split yields [local, domain].
+  const [local, domain] = email.split("@");
+  if (local.startsWith(".") || local.endsWith(".")) return false;
+  if (domain.startsWith(".") || domain.endsWith(".")) return false;
+  return true;
+}
+
+/**
  * Picks the best contact email from a list of AI-discovered candidates.
  *
  * The AI response is untrusted: it may not be an array, may contain entries
@@ -46,7 +63,7 @@ export function resolveBestEmail<T extends { email?: unknown }>(
       !!c &&
       typeof c === "object" &&
       typeof (c as { email?: unknown }).email === "string" &&
-      EMAIL_RE.test((c as { email: string }).email.trim())
+      isValidEmail((c as { email: string }).email.trim())
   );
 
   if (valid.length > 0) {
