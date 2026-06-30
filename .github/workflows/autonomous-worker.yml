@@ -151,6 +151,10 @@ jobs:
 
             STEP 6 — DELIVER THE PR (YOU, the lead)
             - Write a concise one-line PR title to /tmp/pr_title.txt
+            - Write /tmp/pr_human.txt: ONE short, plain-English sentence (≤20 words) a
+              non-technical person instantly understands — what you changed and why it
+              helps. NO code terms, NO file names, NO jargon, NO "fix(scope):" prefix.
+              Good: "Fixed a glitch where one broken support message blanked the page."
             - Write a PR body to /tmp/pr_body.md: WHAT changed, WHY, HOW verified (exact
               commands + observed results), the adversarial-review verdict and deferred
               [NIT]s, and "Closes #N" if from a fleet-task issue. Be honest: if you could
@@ -179,15 +183,28 @@ jobs:
         run: |
           set +e
           [ -z "${TG:-}" ] && exit 0
-          REPO="${{ github.repository }}"
-          RUN_URL="https://github.com/${REPO}/actions/runs/${{ github.run_id }}"
+          REPO="${{ github.repository }}"; SLUG="${REPO##*/}"
+          case "$SLUG" in
+            vebjorn-os)           NAME="Your assistant";;
+            vebjorn-os-dashboard) NAME="Dashboard";;
+            shoal)                NAME="Shoal";;
+            studielab-ai)         NAME="StudieLab";;
+            1000-what-if-s)       NAME="1000 What-Ifs";;
+            oh3-kriger)           NAME="ØH3 Kriger";;
+            oh3kriger-website)    NAME="ØH3 website";;
+            *)                    NAME="$SLUG";;
+          esac
           if [ "${{ steps.guard.outputs.skip }}" = "true" ]; then
-            MSG="⏸ ${REPO}: paused — plan near limit (5h ${{ steps.guard.outputs.util5h }} / 7d ${{ steps.guard.outputs.util7d }}); auto-resumes when a window resets"
+            exit 0
           elif [ "${{ job.status }}" != "success" ]; then
-            MSG="⚠️ ${REPO}: worker run FAILED — no changes made, nothing broken. Logs: ${RUN_URL}"
+            MSG="⚠️ ${NAME}: a background task didn't finish. Nothing changed and nothing broke — I'll try again automatically."
           else
-            PR="$(cat /tmp/pr_url.txt 2>/dev/null)"
-            MSG="🤖 ${REPO}: ${PR:-no change this run}"
+            URL="$(cat /tmp/pr_url.txt 2>/dev/null)"
+            [ -z "$URL" ] && exit 0
+            HUMAN="$(cat /tmp/pr_human.txt 2>/dev/null)"
+            [ -z "$HUMAN" ] && HUMAN="$(sed -E 's/^[a-z]+(\([^)]*\))?: *//' /tmp/pr_title.txt 2>/dev/null)"
+            [ -z "$HUMAN" ] && HUMAN="made a small improvement"
+            MSG="✅ ${NAME}: ${HUMAN}"$'\n'"🔗 ${URL}"
           fi
           curl -sS "https://api.telegram.org/bot${TG}/sendMessage" \
             --data-urlencode "chat_id=${CHAT}" --data-urlencode "text=${MSG}" >/dev/null
