@@ -1,6 +1,7 @@
 import { openrouter, MODEL } from "@/lib/ai/openrouter";
 import { createClient } from "@/lib/supabase/server";
 import { getWhatIfGenerationPrompt } from "@/lib/ai/prompts";
+import { parseModelJson } from "@/lib/utils/modelJson";
 
 export const maxDuration = 60; // Allow up to 60s for AI generation
 
@@ -52,20 +53,9 @@ export async function POST(request: Request) {
 
     const text = response.choices[0]?.message?.content || "[]";
 
-    let opportunities;
-    try {
-      opportunities = JSON.parse(text);
-    } catch {
-      const match = text.match(/\[[\s\S]*\]/);
-      if (match) {
-        opportunities = JSON.parse(match[0]);
-      } else {
-        return Response.json(
-          { error: "Failed to parse AI response", raw: text.slice(0, 200) },
-          { status: 500 }
-        );
-      }
-    }
+    // The model is untrusted: parseModelJson tolerates fences/prose and never
+    // throws, so a noisy response can't crash the handler.
+    const opportunities = parseModelJson(text);
 
     if (!Array.isArray(opportunities) || opportunities.length === 0) {
       return Response.json(
