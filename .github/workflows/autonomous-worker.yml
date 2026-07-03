@@ -45,6 +45,9 @@ jobs:
           gh issue list -R "${{ github.repository }}" --label fleet-task --state open \
             --json number,title,body --limit 30 > /tmp/fleet_tasks.json 2>/dev/null || echo "[]" > /tmp/fleet_tasks.json
           echo "Open fleet-task issues:"; cat /tmp/fleet_tasks.json
+          gh pr list -R "${{ github.repository }}" --state open --json number,title,files --limit 20 \
+            > /tmp/open_prs.json 2>/dev/null || echo "[]" > /tmp/open_prs.json
+          echo "Open PRs (do NOT duplicate these):"; cat /tmp/open_prs.json
 
       - name: Autonomous worker (deep, multi-agent)
         if: steps.guard.outputs.skip != 'true'
@@ -103,6 +106,18 @@ jobs:
               the TIER (work).
 
             ============================================================
+            FLEET LEARNINGS (hard-won — heed these; each cost a broken PR):
+            - Keep the diff SMALL (< 150 lines), ONE focused change.
+            - Do NOT duplicate an OPEN PR (/tmp/open_prs.json) — two green PRs on the same
+              file/symbol collide on merge and break the build.
+            - "Green" must mean verified: if you add tests, actually RUN them and report
+              real pass/fail; never claim a result you did not observe.
+            - Prefer defensive, backward-compatible fixes over refactors that change contracts.
+            - A shell step that pipes to `tee`/another command masks its exit code.
+            - Write /tmp/pr_human.txt: a plain-English one-liner a non-technical person gets.
+            ============================================================
+
+            ============================================================
             STAGE PIPELINE — prefer Task sub-agents (serial); else do it yourself.
             ============================================================
 
@@ -111,6 +126,10 @@ jobs:
               most actionable one — and if issues carry a [P#] priority tag, prefer the
               LOWEST number (P1 = most critical, do those first). Note its number for
               "Closes #N". If empty ([]), find work yourself.
+            - Read /tmp/open_prs.json YOURSELF: PRs already OPEN on this repo. Do NOT
+              duplicate or overlap work an open PR already covers (same file + same fix) —
+              that causes merge collisions. Pick DIFFERENT work; if the only good work
+              overlaps an open PR, emit NO_CHANGE.
             - Preferred: launch ONE read-only explore/plan sub-agent (inspection only, NO
               edits). Fallback: survey yourself. Produce: (a) the single best SAFE,
               well-scoped unit of work — a real bug fix, a missing/weak test, a clear
