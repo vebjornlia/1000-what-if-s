@@ -2,6 +2,7 @@ import { openrouter, MODEL_CHEAP } from "@/lib/ai/openrouter";
 import { createClient } from "@/lib/supabase/server";
 import { getEmailDiscoveryPrompt } from "@/lib/ai/prompts";
 import { resolveBestEmail } from "@/lib/utils/email";
+import { parseJsonArray } from "@/lib/utils/json";
 import type { DiscoveredEmail } from "@/lib/hooks/useWhatIfs";
 
 export const maxDuration = 30;
@@ -81,13 +82,9 @@ export async function POST(request: Request) {
 
         const text = response.choices[0]?.message?.content || "[]";
 
-        let candidates: DiscoveredEmail[];
-        try {
-          candidates = JSON.parse(text);
-        } catch {
-          const match = text.match(/\[[\s\S]*\]/);
-          candidates = match ? JSON.parse(match[0]) : [];
-        }
+        // The model output is untrusted and may be prose- or fence-wrapped;
+        // resolveBestEmail tolerates a non-array, so default to [].
+        const candidates = parseJsonArray(text) ?? [];
 
         const { validCandidates, bestEmail, status } =
           resolveBestEmail<DiscoveredEmail>(

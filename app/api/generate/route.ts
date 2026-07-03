@@ -1,6 +1,17 @@
 import { openrouter, MODEL } from "@/lib/ai/openrouter";
 import { createClient } from "@/lib/supabase/server";
 import { getWhatIfGenerationPrompt } from "@/lib/ai/prompts";
+import { parseJsonArray } from "@/lib/utils/json";
+
+type RawOpportunity = {
+  emoji?: string;
+  category?: string;
+  recipient_name?: string;
+  recipient_description?: string;
+  recipient_contact?: string;
+  message_subject?: string;
+  message_body?: string;
+};
 
 export const maxDuration = 60; // Allow up to 60s for AI generation
 
@@ -52,22 +63,15 @@ export async function POST(request: Request) {
 
     const text = response.choices[0]?.message?.content || "[]";
 
-    let opportunities;
-    try {
-      opportunities = JSON.parse(text);
-    } catch {
-      const match = text.match(/\[[\s\S]*\]/);
-      if (match) {
-        opportunities = JSON.parse(match[0]);
-      } else {
-        return Response.json(
-          { error: "Failed to parse AI response", raw: text.slice(0, 200) },
-          { status: 500 }
-        );
-      }
+    const opportunities = parseJsonArray(text);
+    if (!opportunities) {
+      return Response.json(
+        { error: "Failed to parse AI response", raw: text.slice(0, 200) },
+        { status: 500 }
+      );
     }
 
-    if (!Array.isArray(opportunities) || opportunities.length === 0) {
+    if (opportunities.length === 0) {
       return Response.json(
         { error: "AI returned no opportunities", raw: text.slice(0, 200) },
         { status: 500 }
@@ -83,19 +87,8 @@ export async function POST(request: Request) {
     const startIndex = count || 0;
 
     // Build rows
-    const rows = opportunities.map(
-      (
-        opp: {
-          emoji?: string;
-          category?: string;
-          recipient_name?: string;
-          recipient_description?: string;
-          recipient_contact?: string;
-          message_subject?: string;
-          message_body?: string;
-        },
-        i: number
-      ) => ({
+    const rows = (opportunities as RawOpportunity[]).map(
+      (opp: RawOpportunity, i: number) => ({
         user_id: user.id,
         batch_number: batchNumber,
         card_index: startIndex + i,
