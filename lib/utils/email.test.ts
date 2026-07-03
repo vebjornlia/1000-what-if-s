@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveBestEmail, getMessageSubject } from "./email.ts";
+import {
+  resolveBestEmail,
+  getMessageSubject,
+  formatMessageForCopy,
+} from "./email.ts";
 
 test("returns the first valid candidate as found", () => {
   const result = resolveBestEmail(
@@ -80,6 +84,41 @@ test("getMessageSubject falls back to default for a blank/whitespace subject", (
     assert.equal(
       getMessageSubject({ recipient_name: "Ada", message_subject: blank }),
       "Quick question for Ada"
+    );
+  }
+});
+
+test("formatMessageForCopy keeps a real subject and appends the body", () => {
+  assert.equal(
+    formatMessageForCopy({
+      recipient_name: "Ada",
+      message_subject: "Hello there",
+      message_body: "Let's chat.",
+    }),
+    "Subject: Hello there\n\nLet's chat."
+  );
+});
+
+test("formatMessageForCopy trims a padded subject", () => {
+  assert.equal(
+    formatMessageForCopy({
+      recipient_name: "Ada",
+      message_subject: "  Hello  ",
+      message_body: "Body.",
+    }),
+    "Subject: Hello\n\nBody."
+  );
+});
+
+test("formatMessageForCopy uses the default subject for a blank/whitespace subject (the original bug: a blank subject line was leaked)", () => {
+  for (const blank of ["", "   ", "\n\t", undefined]) {
+    assert.equal(
+      formatMessageForCopy({
+        recipient_name: "Ada",
+        message_subject: blank,
+        message_body: "Body.",
+      }),
+      "Subject: Quick question for Ada\n\nBody."
     );
   }
 });

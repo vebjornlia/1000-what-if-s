@@ -73,3 +73,21 @@ export function getMessageSubject(card: {
   if (subject) return subject;
   return `Quick question for ${card.recipient_name}`;
 }
+
+/**
+ * Formats a card as plain text for the "Copy" action.
+ *
+ * Uses getMessageSubject so the copied text always carries a valid subject
+ * line that matches what "Send via Gmail" would use. A raw truthiness check on
+ * message_subject would treat a whitespace-only subject as present and leak a
+ * blank "Subject:   " line, while an empty subject would drop the line entirely
+ * — both diverging from the Gmail path.
+ */
+export function formatMessageForCopy(card: {
+  recipient_name: string;
+  message_subject?: string;
+  category?: string;
+  message_body: string;
+}) {
+  return `Subject: ${getMessageSubject(card)}\n\n${card.message_body}`;
+}
