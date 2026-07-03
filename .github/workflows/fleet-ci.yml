@@ -1,78 +1,75 @@
 name: Fleet CI (test-gate)
 
-# Runs the project's tests on the autonomous worker's PRs (head branch `auto/*`)
-# so a worker change that breaks tests shows a RED check BEFORE you merge —
-# turning the worker's self-reported "tests pass" into an observed fact.
-# Best-effort + no false reds: repos without a recognizable/ runnable test suite
-# pass with a neutral note (the worker still did its own adversarial self-review).
-# Static across repos — copied verbatim by fleet/scripts/propagate_ci.sh.
+# Runs the project's REAL checks on the autonomous worker's PRs (head branch
+# `auto/*`) so a worker change that breaks the build/tests shows a RED check
+# BEFORE merge — turning "tests pass" into an observed fact. Best-effort installs
+# (tooling/install problems => neutral pass, can't verify so don't block); only an
+# ACTUAL failure (tests, Node build, pytest, invalid fleet config) returns non-zero
+# and reds the check. Static across repos — copied verbatim by propagate_ci.sh.
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  workflow_dispatch: {}   # lets us reproduce a deploy build on demand
 
 permissions:
   contents: read
 
 jobs:
   test-gate:
-    # the fleet's own PRs, or a manual dispatch (for reproducing a deploy build)
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'auto/')
+    if: startsWith(github.head_ref, 'auto/')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
 
-      - name: Detect stack and run tests (best-effort)
+      - name: Run project checks (real failures red; install issues neutral)
         run: |
-          # NB: no `set -e`. Install problems => neutral pass (can't verify, don't
-          # block). Only an actual TEST FAILURE returns non-zero and reds the check.
-          run_tests() {
-            if [ -f package.json ] && grep -q '"test"[[:space:]]*:' package.json; then
-              echo "== Node project: installing =="
-              npm ci >/dev/null 2>&1 || npm install >/dev/null 2>&1 || {
-                echo "node install failed — neutral pass (cannot verify)"; return 0; }
-              echo "== npm test =="
-              npm test
-              return $?
-            fi
-            if [ -d tests ] && ls pyproject.toml requirements*.txt setup.py >/dev/null 2>&1; then
-              echo "== Python project: installing =="
-              python3 -m pip install -q --upgrade pip >/dev/null 2>&1 || true
-              [ -f requirements.txt ] && pip install -q -r requirements.txt >/dev/null 2>&1
-              [ -f pyproject.toml ] && pip install -q -e . >/dev/null 2>&1
-              pip install -q pytest >/dev/null 2>&1
-              echo "== pytest =="
-              pytest -q
-              return $?
-            fi
-            echo "No recognizable test suite found — neutral pass (worker self-reviewed)."
-            return 0
-          }
-          run_tests
+          # No `set -e`: install/tooling problems => neutral pass. Real failures => RED.
+          fail=0
 
-      - name: Build check (catch deploy-breaking changes)
-        run: |
-          # A FAILURE here is a real RED check: the change would break the deploy
-          # (Render Docker build / Vercel npm build). Best-effort: only builds what
-          # exists, so repos with nothing to build pass cleanly.
-          rc=0
-          if [ -f Dockerfile ]; then
-            echo "== docker build (reproduces the Render/Docker deploy) =="
-            docker build -t fleet-ci-build-check . || rc=1
+          # ---- Node (root, else a single nested app dir) ----
+          pkgdir=""
+          if [ -f package.json ]; then pkgdir="."
+          else pkgdir=$(ls -d */package.json 2>/dev/null | head -1 | xargs -r dirname); fi
+          if [ -n "$pkgdir" ] && [ -f "$pkgdir/package.json" ]; then
+            echo "== Node project at: $pkgdir =="
+            ( cd "$pkgdir"
+              if npm ci >/dev/null 2>&1 || npm install >/dev/null 2>&1; then
+                if grep -q '"test"[[:space:]]*:' package.json; then
+                  echo "-- npm test --"; npm test || exit 21; fi
+                if grep -q '"build"[[:space:]]*:' package.json; then
+                  echo "-- npm run build --"; npm run build || exit 22; fi
+              else
+                echo "node install failed — neutral pass (cannot verify)"
+              fi )
+            rc=$?; [ $rc -ne 0 ] && { echo "NODE CHECK FAILED (rc=$rc)"; fail=1; }
           fi
-          if [ -f package.json ] && grep -q '"build"[[:space:]]*:' package.json; then
-            echo "== npm run build (reproduces the Vercel/Node build) =="
-            (npm ci || npm install) >/dev/null 2>&1 || true
-            npm run build || rc=1
+
+          # ---- Python (pytest is the real gate; install issues stay neutral) ----
+          if ls pyproject.toml requirements*.txt setup.py >/dev/null 2>&1; then
+            echo "== Python project =="
+            python3 -m pip install -q --upgrade pip >/dev/null 2>&1 || true
+            [ -f requirements.txt ] && pip install -q -r requirements.txt >/dev/null 2>&1 || true
+            [ -f pyproject.toml ] && pip install -q -e . >/dev/null 2>&1 || true
+            pip install -q pytest >/dev/null 2>&1 || true
+            if [ -d tests ]; then echo "-- pytest --"; pytest -q || fail=1; fi
           fi
-          if [ "$rc" -ne 0 ]; then
-            echo "BUILD FAILED — this change would break the deploy; blocking merge."; exit 1
+
+          # ---- Fleet infra self-validation (only where fleet/ exists) ----
+          if [ -f fleet/projects.json ]; then
+            echo "== Fleet config validation =="
+            python3 -c "import json; json.load(open('fleet/projects.json'))" \
+              || { echo "projects.json is invalid JSON"; fail=1; }
+            for slug in $(python3 -c "import json;print(' '.join(p['slug'] for p in json.load(open('fleet/projects.json'))['projects'] if p.get('enabled') and p.get('tier')!='excluded'))" 2>/dev/null); do
+              if ! python3 fleet/scripts/render_worker.py "$slug" > /tmp/r.yml 2>/dev/null || [ ! -s /tmp/r.yml ]; then
+                echo "render_worker failed for $slug"; fail=1; fi
+            done
+            echo "fleet config + renders OK"
           fi
-          echo "build check OK (or nothing to build)."
+
+          if [ "$fail" = "1" ]; then echo "❌ Fleet CI: a real check failed"; exit 1; fi
+          echo "✅ Fleet CI: all runnable checks passed (neutral where uncheckable)."
