@@ -6,7 +6,7 @@ import { Edit3, Trash2, Copy, Check, Mail } from "lucide-react";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import MessageEditor from "./MessageEditor";
 import ContactWidget from "./ContactWidget";
-import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
+import { openGmailCompose, getMessageSubject, getCopyText } from "@/lib/utils/email";
 
 function getEffectiveEmail(card: WhatIf): string {
   return card.resolved_contact || card.recipient_contact || "";
@@ -29,9 +29,7 @@ export default function QueueList({
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   async function handleCopy(card: WhatIf) {
-    const text = card.message_subject
-      ? `Subject: ${card.message_subject}\n\n${card.message_body}`
-      : card.message_body;
+    const text = getCopyText(card);
     await navigator.clipboard.writeText(text);
     setCopiedId(card.id);
     setTimeout(() => setCopiedId(null), 2000);

@@ -73,3 +73,18 @@ export function getMessageSubject(card: {
   if (subject) return subject;
   return `Quick question for ${card.recipient_name}`;
 }
+
+/**
+ * Builds the plain-text representation copied to the clipboard for a queued
+ * message. Routes the subject through getMessageSubject so the copied text
+ * always carries the same subject line the email would actually be sent with
+ * (including the fallback for a missing/whitespace-only subject) — instead of
+ * silently omitting the subject or leaking a blank "Subject:" line.
+ */
+export function getCopyText(card: {
+  recipient_name: string;
+  message_subject?: string;
+  message_body: string;
+}) {
+  return `Subject: ${getMessageSubject(card)}\n\n${card.message_body}`;
+}
