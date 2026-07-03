@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import QueueList from "@/components/queue/QueueList";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import { Mail, Loader2 } from "lucide-react";
-import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
+import { openGmailCompose, getMessageSubject, isValidEmail } from "@/lib/utils/email";
 
 export default function QueuePage() {
   const [items, setItems] = useState<WhatIf[]>([]);
@@ -79,22 +79,39 @@ export default function QueuePage() {
   }
 
   function handleSendAllViaGmail() {
-    items.forEach((card, i) => {
+    // Only cards with a valid recipient email can actually be sent. Cards with
+    // no resolved email (discovery returned not_found) or whose contact is a
+    // non-email URL must stay in the queue — never mark them sent, or the lead
+    // silently vanishes with no outreach having happened.
+    const sendable = items
+      .map((card) => ({
+        card,
+        email: isValidEmail(card.resolved_contact)
+          ? (card.resolved_contact as string).trim()
+          : isValidEmail(card.recipient_contact)
+            ? card.recipient_contact.trim()
+            : null,
+      }))
+      .filter((entry): entry is { card: WhatIf; email: string } => entry.email !== null);
+
+    if (sendable.length === 0) return;
+
+    sendable.forEach(({ card, email }, i) => {
       setTimeout(() => {
         openGmailCompose({
-          to: card.resolved_contact || card.recipient_contact || "",
+          to: email,
           subject: getMessageSubject(card),
           body: card.message_body,
         });
       }, i * 500);
     });
 
-    const ids = items.map((i) => i.id);
+    const sentIds = new Set(sendable.map(({ card }) => card.id));
     supabase
       .from("what_ifs")
       .update({ status: "sent", sent_at: new Date().toISOString() })
-      .in("id", ids)
-      .then(() => setItems([]));
+      .in("id", Array.from(sentIds))
+      .then(() => setItems((prev) => prev.filter((i) => !sentIds.has(i.id))));
   }
 
   if (loading) {

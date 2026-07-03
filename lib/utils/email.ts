@@ -28,6 +28,16 @@ export function openMailto(options: {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
+ * True only when `value` is a string that looks like a real email address.
+ * Accepts `unknown` so callers can pass nullable/untrusted contact fields
+ * directly (e.g. `resolved_contact` is `string | null`, `recipient_contact`
+ * is often a non-email URL). Surrounding whitespace is ignored.
+ */
+export function isValidEmail(value: unknown): boolean {
+  return typeof value === "string" && EMAIL_RE.test(value.trim());
+}
+
+/**
  * Picks the best contact email from a list of AI-discovered candidates.
  *
  * The AI response is untrusted: it may not be an array, may contain entries
@@ -45,8 +55,7 @@ export function resolveBestEmail<T extends { email?: unknown }>(
     (c): c is T =>
       !!c &&
       typeof c === "object" &&
-      typeof (c as { email?: unknown }).email === "string" &&
-      EMAIL_RE.test((c as { email: string }).email.trim())
+      isValidEmail((c as { email?: unknown }).email)
   );
 
   if (valid.length > 0) {
