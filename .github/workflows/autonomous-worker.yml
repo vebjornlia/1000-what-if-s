@@ -10,7 +10,7 @@ name: Autonomous Worker
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "13 7 * * *"
+    - cron: "40 23 * * *"
 
 permissions:
   contents: write
@@ -34,7 +34,7 @@ jobs:
         id: guard
         env:
           ANTHROPIC_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          RESERVE_CEILING: "0.9"
+          RESERVE_CEILING: "0.75"
         run: bash .github/scripts/reserve_guard.sh
 
       - name: Collect tasks you assigned (issues labeled fleet-task)
