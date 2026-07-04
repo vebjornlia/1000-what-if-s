@@ -1,5 +1,6 @@
 import { openrouter, MODEL } from "@/lib/ai/openrouter";
 import { ONBOARDING_SYSTEM_PROMPT, PROFILE_EXTRACTION_PROMPT } from "@/lib/ai/prompts";
+import { extractJsonObject } from "@/lib/utils/jsonExtract";
 
 export const maxDuration = 30;
 
@@ -24,14 +25,10 @@ export async function POST(request: Request) {
 
       const text = response.choices[0]?.message?.content || "{}";
 
-      // Try to parse, handling markdown code blocks
-      let profile;
-      try {
-        profile = JSON.parse(text);
-      } catch {
-        const match = text.match(/\{[\s\S]*\}/);
-        profile = match ? JSON.parse(match[0]) : {};
-      }
+      // The model output is untrusted: it may be clean JSON, JSON wrapped in
+      // prose/markdown fences, or a malformed object-shaped string. Extract
+      // safely — a bad response falls back to {} instead of throwing a 500.
+      const profile = extractJsonObject(text) ?? {};
 
       return Response.json({ profile });
     }
