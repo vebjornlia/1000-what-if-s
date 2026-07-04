@@ -13,7 +13,13 @@ export default function MessageEditor({
   onSave: (body: string, subject: string, contact?: string) => void;
   onClose: () => void;
 }) {
-  const [to, setTo] = useState(card.resolved_contact || card.recipient_contact || "");
+  // The contact the editor opens with. We only report a contact back on save
+  // when the user actually changed it — otherwise saving a body/subject edit
+  // would clobber the AI-discovered `resolved_contact` and force the discovery
+  // status to "manual" (losing confidence/candidates, or writing a non-email
+  // URL into the send address).
+  const initialTo = card.resolved_contact || card.recipient_contact || "";
+  const [to, setTo] = useState(initialTo);
   const [subject, setSubject] = useState(card.message_subject || "");
   const [body, setBody] = useState(card.message_body);
 
@@ -66,7 +72,7 @@ export default function MessageEditor({
             Cancel
           </button>
           <button
-            onClick={() => onSave(body, subject, to)}
+            onClick={() => onSave(body, subject, to === initialTo ? undefined : to)}
             className="flex items-center gap-1 rounded-lg gradient-bg px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
           >
             <Check className="h-4 w-4" />
