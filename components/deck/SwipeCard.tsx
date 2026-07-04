@@ -4,6 +4,8 @@ import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useState } from "react";
 import { Copy, Check, Mail, ExternalLink } from "lucide-react";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
+import { buildCopyText } from "@/lib/utils/copy";
+import { getMessageSubject } from "@/lib/utils/email";
 
 export default function SwipeCard({
   card,
@@ -38,9 +40,7 @@ export default function SwipeCard({
   }
 
   async function handleCopy() {
-    const text = card.message_subject
-      ? `Subject: ${card.message_subject}\n\n${card.message_body}`
-      : card.message_body;
+    const text = buildCopyText(getMessageSubject(card), card.message_body);
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
