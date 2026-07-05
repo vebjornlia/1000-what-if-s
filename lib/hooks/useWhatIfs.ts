@@ -37,19 +37,25 @@ export function useWhatIfs() {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
 
-  const fetchCards = useCallback(async () => {
-    setLoading(true);
-    const { data, count } = await supabase
-      .from("what_ifs")
-      .select("*", { count: "exact" })
-      .eq("status", "unseen")
-      .order("card_index", { ascending: true })
-      .limit(20);
+  // `showLoading` gates the full-screen deck loader. The initial load wants it,
+  // but a background top-up while the user is mid-swipe must NOT flash the whole
+  // deck away behind a spinner — pass false for those refetches.
+  const fetchCards = useCallback(
+    async (showLoading = true) => {
+      if (showLoading) setLoading(true);
+      const { data, count } = await supabase
+        .from("what_ifs")
+        .select("*", { count: "exact" })
+        .eq("status", "unseen")
+        .order("card_index", { ascending: true })
+        .limit(20);
 
-    setCards((data as WhatIf[]) || []);
-    setTotalCount(count || 0);
-    setLoading(false);
-  }, [supabase]);
+      setCards((data as WhatIf[]) || []);
+      setTotalCount(count || 0);
+      if (showLoading) setLoading(false);
+    },
+    [supabase]
+  );
 
   useEffect(() => {
     fetchCards();
@@ -90,9 +96,9 @@ export function useWhatIfs() {
       }).catch(() => {});
     }
 
-    // Fetch more if running low
+    // Fetch more if running low — background refetch, don't flash the loader.
     if (cards.length <= 5) {
-      fetchCards();
+      fetchCards(false);
     }
   }
 
