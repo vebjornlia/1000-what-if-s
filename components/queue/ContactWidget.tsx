@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Mail, AlertCircle, Loader2, ChevronDown, ChevronUp, Pencil } from "lucide-react";
 import type { WhatIf, DiscoveredEmail } from "@/lib/hooks/useWhatIfs";
+import { isValidEmail } from "@/lib/utils/validateEmail";
 
 const confidenceColors = {
   high: "bg-green-100 text-green-700",
@@ -26,6 +27,15 @@ export default function ContactWidget({
   const candidates = card.discovered_emails || [];
   const bestCandidate = candidates[0];
 
+  // Commit a manually typed address only if it is a valid email, storing the
+  // trimmed value so stray whitespace never reaches the recipient field.
+  function commitManualEmail() {
+    const trimmed = manualEmail.trim();
+    if (!isValidEmail(trimmed)) return;
+    onSetManual(trimmed);
+    setEditing(false);
+  }
+
   // Manual entry mode
   if (editing) {
     return (
@@ -38,21 +48,14 @@ export default function ContactWidget({
           className="flex-1 rounded-md border border-border px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-accent-purple/50"
           autoFocus
           onKeyDown={(e) => {
-            if (e.key === "Enter" && manualEmail.includes("@")) {
-              onSetManual(manualEmail);
-              setEditing(false);
-            }
+            if (e.key === "Enter") commitManualEmail();
             if (e.key === "Escape") setEditing(false);
           }}
         />
         <button
-          onClick={() => {
-            if (manualEmail.includes("@")) {
-              onSetManual(manualEmail);
-              setEditing(false);
-            }
-          }}
-          className="rounded-md gradient-bg px-2 py-1 text-[10px] font-semibold text-white"
+          onClick={commitManualEmail}
+          disabled={!isValidEmail(manualEmail)}
+          className="rounded-md gradient-bg px-2 py-1 text-[10px] font-semibold text-white disabled:opacity-50"
         >
           Save
         </button>
