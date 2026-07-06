@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { copyResponseCookies } from "./cookies";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -36,7 +37,9 @@ export async function updateSession(request: NextRequest) {
   if (isProtected && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    copyResponseCookies(supabaseResponse.cookies, redirect.cookies);
+    return redirect;
   }
 
   // If logged in, check if profile exists (skip for onboarding itself and API routes)
@@ -56,7 +59,9 @@ export async function updateSession(request: NextRequest) {
         // No profile — redirect to onboarding
         const url = request.nextUrl.clone();
         url.pathname = "/onboarding";
-        return NextResponse.redirect(url);
+        const redirect = NextResponse.redirect(url);
+        copyResponseCookies(supabaseResponse.cookies, redirect.cookies);
+        return redirect;
       }
 
       // Profile exists — set cookie so we don't check again this session
@@ -72,7 +77,9 @@ export async function updateSession(request: NextRequest) {
   if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup")) {
     const url = request.nextUrl.clone();
     url.pathname = "/deck";
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    copyResponseCookies(supabaseResponse.cookies, redirect.cookies);
+    return redirect;
   }
 
   return supabaseResponse;
