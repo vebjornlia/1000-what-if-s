@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { motion } from "framer-motion";
 import { Loader2, Sparkles, Send, X as XIcon, MessageCircle, BarChart3 } from "lucide-react";
@@ -31,7 +31,12 @@ const COLORS = ["#7B68EE", "#00B894", "#FFD700", "#FF6B6B", "#4ECDC4", "#FF8A5C"
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  // Keep a single Supabase client for the component's lifetime. Creating it
+  // inline on every render gives `fetchStats` (which depends on it) a new
+  // identity each render, so the `[fetchStats]` effect re-fires every render —
+  // an unbounded refetch loop. A ref pins the client, matching the other pages.
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   const fetchStats = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
