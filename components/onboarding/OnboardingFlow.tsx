@@ -16,6 +16,10 @@ interface Message {
 
 type Phase = "chat" | "extracting" | "review" | "saving";
 
+function cleanMessage(text: string) {
+  return text.replace(/\[INTERVIEW_COMPLETE\]/g, "").trim();
+}
+
 export default function OnboardingFlow() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,37 +40,33 @@ export default function OnboardingFlow() {
     }
   }, [messages]);
 
-  // AI starts the conversation
+  // Fetch the AI's opening greeting — used on mount and when the user redoes the interview
+  const startInterview = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "Start the interview. Introduce yourself warmly and ask your first question." }],
+        }),
+      });
+      const data = await res.json();
+      if (data.message) {
+        setMessages([{ role: "assistant", content: cleanMessage(data.message) }]);
+      }
+    } catch (err) {
+      console.error("Greeting failed:", err);
+    }
+    setIsLoading(false);
+  }, []);
+
+  // AI starts the conversation on mount (once)
   useEffect(() => {
     if (initialSent.current) return;
     initialSent.current = true;
-
-    async function greet() {
-      setIsLoading(true);
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: [{ role: "user", content: "Start the interview. Introduce yourself warmly and ask your first question." }],
-          }),
-        });
-        const data = await res.json();
-        if (data.message) {
-          setMessages([{ role: "assistant", content: cleanMessage(data.message) }]);
-        }
-      } catch (err) {
-        console.error("Greeting failed:", err);
-      }
-      setIsLoading(false);
-    }
-
-    greet();
-  }, []);
-
-  function cleanMessage(text: string) {
-    return text.replace(/\[INTERVIEW_COMPLETE\]/g, "").trim();
-  }
+    startInterview();
+  }, [startInterview]);
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -145,7 +145,8 @@ export default function OnboardingFlow() {
     setMessages([]);
     setExtractedProfile(null);
     setPhase("chat");
-    initialSent.current = false;
+    // Replay the opening greeting so the chat isn't left blank after a redo
+    startInterview();
   }
 
   // --- EXTRACTING / SAVING SCREEN ---
