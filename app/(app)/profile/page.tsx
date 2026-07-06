@@ -34,15 +34,26 @@ export default function ProfilePage() {
   async function handleSave(editedProfile: Profile) {
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from("profiles").update({
-        structured_profile: editedProfile,
-        display_name: (editedProfile.display_name as string) || "Friend",
-        updated_at: new Date().toISOString(),
-      }).eq("id", user.id);
+
+    // No session — nothing was saved, so don't claim success.
+    if (!user) {
+      setSaving(false);
+      alert("Couldn't save — you appear to be signed out. Please sign in again.");
+      return;
     }
+
+    const { error } = await supabase.from("profiles").update({
+      structured_profile: editedProfile,
+      display_name: (editedProfile.display_name as string) || "Friend",
+      updated_at: new Date().toISOString(),
+    }).eq("id", user.id);
     setSaving(false);
-    // Show a brief success state
+
+    // Only report success when the update actually persisted.
+    if (error) {
+      alert("Couldn't save your profile. Please try again.");
+      return;
+    }
     alert("Profile saved!");
   }
 
