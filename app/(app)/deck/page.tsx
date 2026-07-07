@@ -7,6 +7,7 @@ import SwipeDeck from "@/components/deck/SwipeDeck";
 import { Sparkles, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import { getDeckScreen } from "@/lib/utils/deckView";
 
 export default function DeckPage() {
   return (
@@ -21,6 +22,7 @@ function DeckContent() {
   const searchParams = useSearchParams();
   const [queuedCount, setQueuedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [countsLoaded, setCountsLoaded] = useState(false);
   const [error, setError] = useState("");
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
@@ -37,22 +39,28 @@ function DeckContent() {
   // Fetch counts
   useEffect(() => {
     async function getCounts() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const { count: queued } = await supabase
-        .from("what_ifs")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("status", "queued");
+        const { count: queued } = await supabase
+          .from("what_ifs")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("status", "queued");
 
-      const { count: total } = await supabase
-        .from("what_ifs")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id);
+        const { count: total } = await supabase
+          .from("what_ifs")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id);
 
-      setQueuedCount(queued || 0);
-      setTotalCount(total || 0);
+        setQueuedCount(queued || 0);
+        setTotalCount(total || 0);
+      } finally {
+        // Mark counts as resolved either way so the deck can tell a brand-new
+        // user apart from one whose counts simply haven't loaded yet.
+        setCountsLoaded(true);
+      }
     }
     getCounts();
   }, [cards, supabase]);
@@ -73,7 +81,15 @@ function DeckContent() {
     }
   }
 
-  if (loading || generating) {
+  const screen = getDeckScreen({
+    loading,
+    generating,
+    countsLoaded,
+    visibleCards: cards.length,
+    totalCount,
+  });
+
+  if (screen === "loading") {
     return (
       <div className="flex min-h-[80vh] flex-col items-center justify-center">
         <motion.div
@@ -90,7 +106,7 @@ function DeckContent() {
     );
   }
 
-  if (cards.length === 0 && totalCount === 0) {
+  if (screen === "first-batch-empty") {
     return (
       <div className="flex min-h-[80vh] flex-col items-center justify-center px-4">
         <Sparkles className="h-12 w-12 text-accent-purple mb-4" />
