@@ -1,17 +1,34 @@
+/**
+ * Builds the Gmail "compose" URL for the given message.
+ *
+ * We percent-encode each value with `encodeURIComponent` (spaces -> `%20`)
+ * rather than `URLSearchParams` (spaces -> `+`). Gmail's `view=cm` compose
+ * endpoint renders a literal `+` for `+`-encoded spaces in the subject/body,
+ * so a message like "Quick idea for you" would arrive as "Quick+idea+for+you".
+ * `%20` is decoded to a real space everywhere, matching `openMailto` below.
+ */
+export function gmailComposeUrl(options: {
+  to?: string;
+  subject: string;
+  body: string;
+}): string {
+  const { to = "", subject, body } = options;
+  const query = [
+    "view=cm",
+    "fs=1",
+    `to=${encodeURIComponent(to)}`,
+    `su=${encodeURIComponent(subject)}`,
+    `body=${encodeURIComponent(body)}`,
+  ].join("&");
+  return `https://mail.google.com/mail/?${query}`;
+}
+
 export function openGmailCompose(options: {
   to?: string;
   subject: string;
   body: string;
 }) {
-  const { to = "", subject, body } = options;
-  const params = new URLSearchParams({
-    view: "cm",
-    fs: "1",
-    to,
-    su: subject,
-    body,
-  });
-  window.open(`https://mail.google.com/mail/?${params.toString()}`, "_blank");
+  window.open(gmailComposeUrl(options), "_blank");
 }
 
 export function openMailto(options: {
