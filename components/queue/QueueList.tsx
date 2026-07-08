@@ -7,6 +7,7 @@ import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import MessageEditor from "./MessageEditor";
 import ContactWidget from "./ContactWidget";
 import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
+import { buildClipboardText } from "@/lib/utils/clipboard";
 
 function getEffectiveEmail(card: WhatIf): string {
   return card.resolved_contact || card.recipient_contact || "";
@@ -29,10 +30,9 @@ export default function QueueList({
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   async function handleCopy(card: WhatIf) {
-    const text = card.message_subject
-      ? `Subject: ${card.message_subject}\n\n${card.message_body}`
-      : card.message_body;
-    await navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(
+      buildClipboardText(getMessageSubject(card), card.message_body)
+    );
     setCopiedId(card.id);
     setTimeout(() => setCopiedId(null), 2000);
   }
