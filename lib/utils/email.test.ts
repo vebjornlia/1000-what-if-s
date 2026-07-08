@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveBestEmail, getMessageSubject } from "./email.ts";
+import {
+  resolveBestEmail,
+  getMessageSubject,
+  isValidEmail,
+  getSendableEmail,
+} from "./email.ts";
 
 test("returns the first valid candidate as found", () => {
   const result = resolveBestEmail(
@@ -52,6 +57,41 @@ test("tolerates non-array input from the model", () => {
 test("trims surrounding whitespace on the chosen email", () => {
   const result = resolveBestEmail([{ email: "  spaced@x.com  " }]);
   assert.equal(result.bestEmail, "spaced@x.com");
+});
+
+test("isValidEmail accepts a well-formed address and trims it", () => {
+  assert.equal(isValidEmail("a@b.com"), true);
+  assert.equal(isValidEmail("  a@b.com  "), true);
+});
+
+test("isValidEmail rejects blanks, non-emails, and non-strings", () => {
+  for (const bad of ["", "   ", "not-an-email", "no@domain", "https://x.com", null, undefined, 42, {}]) {
+    assert.equal(isValidEmail(bad as unknown), false);
+  }
+});
+
+test("getSendableEmail prefers a valid resolved_contact", () => {
+  assert.equal(
+    getSendableEmail({ resolved_contact: "real@x.com", recipient_contact: "https://x.com" }),
+    "real@x.com"
+  );
+});
+
+test("getSendableEmail falls back to recipient_contact when resolved is missing/invalid", () => {
+  assert.equal(
+    getSendableEmail({ resolved_contact: null, recipient_contact: "info@x.com" }),
+    "info@x.com"
+  );
+  assert.equal(
+    getSendableEmail({ resolved_contact: "not-an-email", recipient_contact: "info@x.com" }),
+    "info@x.com"
+  );
+});
+
+test("getSendableEmail returns '' when the card has no valid email (the queue bug)", () => {
+  assert.equal(getSendableEmail({ resolved_contact: null, recipient_contact: "https://instagram.com/host" }), "");
+  assert.equal(getSendableEmail({ resolved_contact: "", recipient_contact: "" }), "");
+  assert.equal(getSendableEmail({}), "");
 });
 
 test("getMessageSubject uses the provided subject when present", () => {
