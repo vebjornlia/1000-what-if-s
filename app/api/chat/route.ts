@@ -1,5 +1,6 @@
 import { openrouter, MODEL } from "@/lib/ai/openrouter";
 import { ONBOARDING_SYSTEM_PROMPT, PROFILE_EXTRACTION_PROMPT } from "@/lib/ai/prompts";
+import { parseJsonObject } from "@/lib/utils/parseJson";
 
 export const maxDuration = 30;
 
@@ -24,14 +25,11 @@ export async function POST(request: Request) {
 
       const text = response.choices[0]?.message?.content || "{}";
 
-      // Try to parse, handling markdown code blocks
-      let profile;
-      try {
-        profile = JSON.parse(text);
-      } catch {
-        const match = text.match(/\{[\s\S]*\}/);
-        profile = match ? JSON.parse(match[0]) : {};
-      }
+      // The model is untrusted: it may wrap the object in code fences/prose or
+      // emit malformed JSON. Recover the object best-effort and fall back to an
+      // empty (still-editable) profile rather than 500-ing, which would bounce
+      // the user out of onboarding and lose the conversation.
+      const profile = parseJsonObject(text) ?? {};
 
       return Response.json({ profile });
     }
