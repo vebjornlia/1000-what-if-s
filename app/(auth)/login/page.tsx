@@ -35,7 +35,14 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signInWithOtp({ email });
+    // This is the sign-in page: a magic link should only log an EXISTING user
+    // back in, never silently create a brand-new (password-less) account.
+    // signInWithOtp defaults to shouldCreateUser: true, so without this flag
+    // any email typed here would be registered, bypassing the /signup flow.
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false },
+    });
 
     if (error) {
       setError(error.message);
