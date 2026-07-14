@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { shouldTopUpDeck } from "@/lib/utils/deckTopUp";
 
 export interface DiscoveredEmail {
   email: string;
@@ -37,19 +38,25 @@ export function useWhatIfs() {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
 
-  const fetchCards = useCallback(async () => {
-    setLoading(true);
-    const { data, count } = await supabase
-      .from("what_ifs")
-      .select("*", { count: "exact" })
-      .eq("status", "unseen")
-      .order("card_index", { ascending: true })
-      .limit(20);
+  // `background: true` refreshes the deck silently (e.g. topping up while the
+  // user keeps swiping) without flipping the global `loading` flag, which the
+  // deck page uses to swap the whole deck for a full-screen spinner.
+  const fetchCards = useCallback(
+    async ({ background = false }: { background?: boolean } = {}) => {
+      if (!background) setLoading(true);
+      const { data, count } = await supabase
+        .from("what_ifs")
+        .select("*", { count: "exact" })
+        .eq("status", "unseen")
+        .order("card_index", { ascending: true })
+        .limit(20);
 
-    setCards((data as WhatIf[]) || []);
-    setTotalCount(count || 0);
-    setLoading(false);
-  }, [supabase]);
+      setCards((data as WhatIf[]) || []);
+      setTotalCount(count || 0);
+      if (!background) setLoading(false);
+    },
+    [supabase]
+  );
 
   useEffect(() => {
     fetchCards();
@@ -90,9 +97,11 @@ export function useWhatIfs() {
       }).catch(() => {});
     }
 
-    // Fetch more if running low
-    if (cards.length <= 5) {
-      fetchCards();
+    // Fetch more if running low. Refresh in the background so swiping the deck
+    // low doesn't flash the full-screen loader. `cards.length` is the
+    // pre-removal count, so shouldTopUpDeck accounts for the swiped card.
+    if (shouldTopUpDeck(cards.length)) {
+      fetchCards({ background: true });
     }
   }
 
