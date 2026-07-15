@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { isExistingAccountSignup } from "@/lib/utils/signup";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -18,7 +19,7 @@ export default function SignupPage() {
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -28,6 +29,15 @@ export default function SignupPage() {
 
     if (error) {
       setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // When email confirmation is enabled, Supabase does not error on a
+    // duplicate email — it returns an obfuscated user with no identities.
+    // Surface that instead of routing into the app with no session.
+    if (isExistingAccountSignup(data)) {
+      setError("An account with this email already exists. Please sign in instead.");
       setLoading(false);
       return;
     }
