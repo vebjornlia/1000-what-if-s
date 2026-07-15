@@ -3,12 +3,7 @@
 import { useState } from "react";
 import { Mail, AlertCircle, Loader2, ChevronDown, ChevronUp, Pencil } from "lucide-react";
 import type { WhatIf, DiscoveredEmail } from "@/lib/hooks/useWhatIfs";
-
-const confidenceColors = {
-  high: "bg-green-100 text-green-700",
-  medium: "bg-yellow-100 text-yellow-700",
-  low: "bg-red-100 text-red-700",
-};
+import { confidenceBadgeClass } from "@/lib/utils/confidence";
 
 export default function ContactWidget({
   card,
@@ -76,9 +71,9 @@ export default function ContactWidget({
             {resolvedEmail}
           </span>
           <span
-            className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
-              confidenceColors[bestCandidate.confidence]
-            }`}
+            className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${confidenceBadgeClass(
+              bestCandidate.confidence
+            )}`}
           >
             {bestCandidate.confidence}
           </span>
@@ -119,9 +114,9 @@ export default function ContactWidget({
                   >
                     <span className="text-[10px] text-foreground">{c.email}</span>
                     <span
-                      className={`rounded-full px-1 py-0.5 text-[8px] font-semibold ${
-                        confidenceColors[c.confidence]
-                      }`}
+                      className={`rounded-full px-1 py-0.5 text-[8px] font-semibold ${confidenceBadgeClass(
+                        c.confidence
+                      )}`}
                     >
                       {c.confidence}
                     </span>
