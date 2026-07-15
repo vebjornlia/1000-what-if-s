@@ -7,6 +7,7 @@ import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import MessageEditor from "./MessageEditor";
 import ContactWidget from "./ContactWidget";
 import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
+import { contactWasEdited } from "@/lib/utils/queueContact";
 
 function getEffectiveEmail(card: WhatIf): string {
   return card.resolved_contact || card.recipient_contact || "";
@@ -136,7 +137,13 @@ export default function QueueList({
           card={editing}
           onSave={(body, subject, contact) => {
             onUpdate(editing.id, body, subject);
-            if (contact !== undefined) {
+            // The editor always returns the pre-filled contact, so only persist
+            // it when the user actually changed it — otherwise saving a message
+            // edit would clobber the discovered email and its confidence data.
+            if (
+              contact !== undefined &&
+              contactWasEdited(getEffectiveEmail(editing), contact)
+            ) {
               onUpdateContact(editing.id, contact);
             }
             setEditing(null);
