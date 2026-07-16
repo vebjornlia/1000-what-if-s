@@ -7,6 +7,7 @@ import { Sparkles, Loader2 } from "lucide-react";
 import ChatBubble from "./ChatBubble";
 import VoiceInput from "./VoiceInput";
 import ProfileReview, { type Profile } from "./ProfileReview";
+import { normalizeProfile } from "@/lib/utils/profile";
 import { createClient } from "@/lib/supabase/client";
 
 interface Message {
@@ -112,7 +113,7 @@ export default function OnboardingFlow() {
         body: JSON.stringify({ messages: msgs, action: "extract_profile" }),
       });
       const data = await res.json();
-      setExtractedProfile(data.profile);
+      setExtractedProfile(normalizeProfile(data.profile));
       setPhase("review");
     } catch (err) {
       console.error("Profile extraction failed:", err);
