@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ProfileReview, { type Profile } from "@/components/onboarding/ProfileReview";
+import { normalizeProfile } from "@/lib/utils/profile";
 import { Loader2 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -25,7 +26,9 @@ export default function ProfilePage() {
         .eq("id", user.id)
         .single();
 
-      setProfile(data?.structured_profile || null);
+      setProfile(
+        data?.structured_profile ? normalizeProfile(data.structured_profile) : null
+      );
       setLoading(false);
     }
     fetchProfile();
