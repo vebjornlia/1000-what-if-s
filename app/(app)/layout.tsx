@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { expireCookie } from "@/lib/utils/cookies";
 import { Sparkles, Layers, Send, BarChart3, User, LogOut } from "lucide-react";
 
 const navItems = [
@@ -18,6 +19,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
 
   async function handleSignOut() {
+    // Clear the cached "has profile" flag so the next person to sign in on this
+    // browser is re-checked against the DB and routed to onboarding if they
+    // have no profile. Without this the stale cookie lets a profile-less user
+    // straight into the app (where generation fails). Path must match the "/"
+    // the cookie was written with.
+    document.cookie = expireCookie("x-has-profile");
     await supabase.auth.signOut();
     router.push("/");
     router.refresh();
