@@ -21,7 +21,7 @@ export default function SwipeDeck({
 
   return (
     <div className="flex flex-col items-center gap-6 px-4 py-6">
-      <SwipeStats totalCount={totalCount} queuedCount={queuedCount} currentIndex={currentCard?.card_index || 0} />
+      <SwipeStats totalCount={totalCount} queuedCount={queuedCount} currentIndex={currentCard?.card_index ?? 0} hasCurrentCard={!!currentCard} />
 
       <div className="relative h-[460px] w-full max-w-sm mx-auto">
         {/* Background stacked cards */}
