@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Check } from "lucide-react";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
+import { initialRecipientEmail } from "@/lib/utils/recipientEmail";
 
 export default function MessageEditor({
   card,
@@ -13,7 +14,12 @@ export default function MessageEditor({
   onSave: (body: string, subject: string, contact?: string) => void;
   onClose: () => void;
 }) {
-  const [to, setTo] = useState(card.resolved_contact || card.recipient_contact || "");
+  // Only seed the "To" field with a real email. Cards often carry a website or
+  // social URL (or nothing) as their contact; prefilling that would let it be
+  // saved as an unsendable recipient, so start blank in those cases instead.
+  const [to, setTo] = useState(
+    initialRecipientEmail(card.resolved_contact, card.recipient_contact)
+  );
   const [subject, setSubject] = useState(card.message_subject || "");
   const [body, setBody] = useState(card.message_body);
 
