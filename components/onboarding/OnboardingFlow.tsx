@@ -8,6 +8,7 @@ import ChatBubble from "./ChatBubble";
 import VoiceInput from "./VoiceInput";
 import ProfileReview, { type Profile } from "./ProfileReview";
 import { createClient } from "@/lib/supabase/client";
+import { hasInterviewComplete, stripInterviewComplete } from "@/lib/utils/interviewComplete";
 
 interface Message {
   role: "user" | "assistant";
@@ -65,7 +66,7 @@ export default function OnboardingFlow() {
   }, []);
 
   function cleanMessage(text: string) {
-    return text.replace(/\[INTERVIEW_COMPLETE\]/g, "").trim();
+    return stripInterviewComplete(text);
   }
 
   const handleSend = useCallback(
@@ -90,7 +91,7 @@ export default function OnboardingFlow() {
         setMessages(withAi);
 
         // Check if AI signaled completion
-        if (rawMessage.includes("[INTERVIEW_COMPLETE]")) {
+        if (hasInterviewComplete(rawMessage)) {
           setTimeout(() => handleExtract(withAi), 2000);
         }
       } catch (err) {
