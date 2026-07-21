@@ -6,6 +6,7 @@ import QueueList from "@/components/queue/QueueList";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import { Mail, Loader2 } from "lucide-react";
 import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
+import { partitionSendable } from "@/lib/utils/queueSend";
 
 export default function QueuePage() {
   const [items, setItems] = useState<WhatIf[]>([]);
@@ -79,22 +80,28 @@ export default function QueuePage() {
   }
 
   function handleSendAllViaGmail() {
-    items.forEach((card, i) => {
+    // Only cards with a real email get opened and marked "sent". Cards without
+    // a resolvable address stay in the queue so those leads are not silently
+    // lost behind a blank Gmail compose window.
+    const { sendable, skipped } = partitionSendable(items);
+    if (sendable.length === 0) return;
+
+    sendable.forEach(({ card, to }, i) => {
       setTimeout(() => {
         openGmailCompose({
-          to: card.resolved_contact || card.recipient_contact || "",
+          to,
           subject: getMessageSubject(card),
           body: card.message_body,
         });
       }, i * 500);
     });
 
-    const ids = items.map((i) => i.id);
+    const ids = sendable.map(({ card }) => card.id);
     supabase
       .from("what_ifs")
       .update({ status: "sent", sent_at: new Date().toISOString() })
       .in("id", ids)
-      .then(() => setItems([]));
+      .then(() => setItems(skipped));
   }
 
   if (loading) {
