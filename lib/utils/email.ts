@@ -28,6 +28,19 @@ export function openMailto(options: {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
+ * True only when `contact` is a syntactically valid email address.
+ *
+ * A card's `recipient_contact` is frequently NOT an email — it can be a profile
+ * URL, a social handle like "@jane", or a bare domain, any of which may contain
+ * an "@" without being a sendable address. A naive `contact.includes("@")`
+ * check mislabels those as emails, so the UI offers a mail affordance for
+ * something that cannot be emailed. Validate the full shape instead.
+ */
+export function isEmailContact(contact: unknown): boolean {
+  return typeof contact === "string" && EMAIL_RE.test(contact.trim());
+}
+
+/**
  * Picks the best contact email from a list of AI-discovered candidates.
  *
  * The AI response is untrusted: it may not be an array, may contain entries
