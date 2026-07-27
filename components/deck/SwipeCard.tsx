@@ -4,6 +4,7 @@ import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useState } from "react";
 import { Copy, Check, Mail, ExternalLink } from "lucide-react";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
+import { isEmailContact } from "@/lib/utils/email";
 
 export default function SwipeCard({
   card,
@@ -48,7 +49,7 @@ export default function SwipeCard({
 
   if (!isTop) return null;
 
-  const isEmail = card.recipient_contact?.includes("@");
+  const isEmail = isEmailContact(card.recipient_contact);
 
   return (
     <motion.div

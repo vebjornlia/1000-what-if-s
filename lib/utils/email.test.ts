@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveBestEmail, getMessageSubject } from "./email.ts";
+import { resolveBestEmail, getMessageSubject, isEmailContact } from "./email.ts";
 
 test("returns the first valid candidate as found", () => {
   const result = resolveBestEmail(
@@ -82,4 +82,33 @@ test("getMessageSubject falls back to default for a blank/whitespace subject", (
       "Quick question for Ada"
     );
   }
+});
+
+test("isEmailContact accepts a syntactically valid email", () => {
+  assert.equal(isEmailContact("host@show.com"), true);
+});
+
+test("isEmailContact trims surrounding whitespace before validating", () => {
+  assert.equal(isEmailContact("  host@show.com  "), true);
+});
+
+test("isEmailContact rejects a social handle that merely contains '@' (the bug)", () => {
+  // "@jane" contains "@" so the old `.includes('@')` check wrongly flagged it
+  // as an email and showed the mail icon; it is not a sendable address.
+  assert.equal(isEmailContact("@jane"), false);
+});
+
+test("isEmailContact rejects a URL that contains '@'", () => {
+  assert.equal(isEmailContact("https://twitter.com/@jane"), false);
+});
+
+test("isEmailContact rejects a bare domain / non-email string", () => {
+  assert.equal(isEmailContact("linkedin.com/in/jane"), false);
+  assert.equal(isEmailContact("host@nodot"), false);
+});
+
+test("isEmailContact tolerates non-string input", () => {
+  assert.equal(isEmailContact(undefined), false);
+  assert.equal(isEmailContact(null), false);
+  assert.equal(isEmailContact(42), false);
 });
