@@ -37,8 +37,11 @@ export function useWhatIfs() {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
 
-  const fetchCards = useCallback(async () => {
-    setLoading(true);
+  const fetchCards = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
+    // Background refetches (e.g. topping up the deck mid-swipe) must not flip
+    // the full-screen loader on — that yanks the visible cards away from the
+    // user. Only the initial load / explicit reload shows the spinner.
+    if (!background) setLoading(true);
     const { data, count } = await supabase
       .from("what_ifs")
       .select("*", { count: "exact" })
@@ -90,9 +93,10 @@ export function useWhatIfs() {
       }).catch(() => {});
     }
 
-    // Fetch more if running low
+    // Fetch more if running low — as a background refetch so the deck the
+    // user is actively swiping doesn't get replaced by the loading spinner.
     if (cards.length <= 5) {
-      fetchCards();
+      fetchCards({ background: true });
     }
   }
 
