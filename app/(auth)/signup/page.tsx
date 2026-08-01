@@ -4,12 +4,14 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { interpretSignup } from "@/lib/utils/signup";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const router = useRouter();
   const supabase = createClient();
 
@@ -17,8 +19,9 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setNotice("");
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -32,8 +35,19 @@ export default function SignupPage() {
       return;
     }
 
-    router.push("/onboarding");
-    router.refresh();
+    // A successful signUp does not guarantee a session: with email
+    // confirmation on (the default) the user must click the link first, and
+    // an already-registered email returns no session either. Only navigate
+    // into the app when we actually have a session.
+    const outcome = interpretSignup(data);
+    if (outcome.status === "session") {
+      router.push("/onboarding");
+      router.refresh();
+      return;
+    }
+
+    setNotice(outcome.message);
+    setLoading(false);
   }
 
   return (
@@ -79,6 +93,7 @@ export default function SignupPage() {
           </div>
 
           {error && <p className="text-sm text-red-500">{error}</p>}
+          {notice && <p className="text-sm text-accent-teal">{notice}</p>}
 
           <button
             type="submit"
