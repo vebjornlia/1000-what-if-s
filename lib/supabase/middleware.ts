@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isProtectedPath } from "@/lib/utils/protectedPath";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -31,7 +32,7 @@ export async function updateSession(request: NextRequest) {
 
   // Protected routes — redirect to login if not authenticated
   const protectedPaths = ["/onboarding", "/deck", "/queue", "/dashboard", "/profile", "/settings"];
-  const isProtected = protectedPaths.some((p) => request.nextUrl.pathname.startsWith(p));
+  const isProtected = isProtectedPath(request.nextUrl.pathname, protectedPaths);
 
   if (isProtected && !user) {
     const url = request.nextUrl.clone();
