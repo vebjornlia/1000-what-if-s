@@ -7,10 +7,7 @@ import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import MessageEditor from "./MessageEditor";
 import ContactWidget from "./ContactWidget";
 import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
-
-function getEffectiveEmail(card: WhatIf): string {
-  return card.resolved_contact || card.recipient_contact || "";
-}
+import { effectiveEmail } from "@/lib/utils/effectiveEmail";
 
 export default function QueueList({
   items,
@@ -39,7 +36,7 @@ export default function QueueList({
 
   function handleSendViaGmail(card: WhatIf) {
     openGmailCompose({
-      to: getEffectiveEmail(card),
+      to: effectiveEmail(card),
       subject: getMessageSubject(card),
       body: card.message_body,
     });
@@ -94,7 +91,7 @@ export default function QueueList({
                     className="mt-3 flex items-center gap-1.5 rounded-lg gradient-bg px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
                   >
                     <Mail className="h-3 w-3" />
-                    {getEffectiveEmail(card) ? "Send via Gmail" : "Open in Gmail"}
+                    {effectiveEmail(card) ? "Send via Gmail" : "Open in Gmail"}
                   </button>
                 </div>
 
