@@ -15,6 +15,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { tallyCategories } from "@/lib/utils/categoryStats";
 
 interface Stats {
   total: number;
@@ -47,7 +48,6 @@ export default function DashboardPage() {
       return;
     }
 
-    const categoryMap: Record<string, number> = {};
     let unseen = 0, skipped = 0, queued = 0, sent = 0, replied = 0;
 
     for (const card of allCards) {
@@ -56,12 +56,9 @@ export default function DashboardPage() {
       if (card.status === "queued") queued++;
       if (card.status === "sent") sent++;
       if (card.got_reply) replied++;
-      categoryMap[card.category] = (categoryMap[card.category] || 0) + 1;
     }
 
-    const categories = Object.entries(categoryMap)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
+    const categories = tallyCategories(allCards);
 
     setStats({
       total: allCards.length,
