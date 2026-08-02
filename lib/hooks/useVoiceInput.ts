@@ -28,6 +28,26 @@ export function useVoiceInput(): UseVoiceInputReturn {
     setIsSupported(!!SpeechRecognition);
   }, []);
 
+  // Stop recognition on unmount so the microphone doesn't keep recording after
+  // the user navigates away, and so callbacks don't fire on an unmounted component.
+  useEffect(() => {
+    return () => {
+      const recognition = recognitionRef.current;
+      if (recognition) {
+        recognition.onresult = null;
+        recognition.onend = null;
+        recognition.onerror = null;
+        // stop() can throw InvalidStateError if already stopped in some browsers.
+        try {
+          recognition.stop();
+        } catch {
+          // ignore — we only care that recognition is no longer active
+        }
+        recognitionRef.current = null;
+      }
+    };
+  }, []);
+
   const startListening = useCallback(() => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
