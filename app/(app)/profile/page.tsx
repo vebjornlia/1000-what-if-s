@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ProfileReview, { type Profile } from "@/components/onboarding/ProfileReview";
+import { profileSaveResult } from "@/lib/utils/saveResult";
 import { Loader2 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -34,16 +35,18 @@ export default function ProfilePage() {
   async function handleSave(editedProfile: Profile) {
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
+    let error: { message?: string } | null = { message: "You're not signed in." };
     if (user) {
-      await supabase.from("profiles").update({
+      ({ error } = await supabase.from("profiles").update({
         structured_profile: editedProfile,
         display_name: (editedProfile.display_name as string) || "Friend",
         updated_at: new Date().toISOString(),
-      }).eq("id", user.id);
+      }).eq("id", user.id));
     }
     setSaving(false);
-    // Show a brief success state
-    alert("Profile saved!");
+    // Only claim success when the write actually succeeded — Supabase resolves
+    // (does not throw) on failure, so we must inspect the returned error.
+    alert(profileSaveResult(error).message);
   }
 
   async function handleRedo() {
