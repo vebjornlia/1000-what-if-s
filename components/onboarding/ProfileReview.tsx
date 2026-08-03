@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Edit3, Check, RotateCcw, X } from "lucide-react";
+import { boldnessBadgeClass, normalizeBoldness } from "@/lib/utils/boldness";
 
 export interface Profile {
   display_name?: string;
@@ -63,12 +64,6 @@ export default function ProfileReview({
       return { ...prev, [field]: arr };
     });
   }
-
-  const boldnessColors: Record<string, string> = {
-    low: "bg-blue-100 text-blue-700",
-    medium: "bg-yellow-100 text-yellow-700",
-    high: "bg-red-100 text-red-700",
-  };
 
   return (
     <motion.div
@@ -211,8 +206,8 @@ export default function ProfileReview({
           </div>
           <div>
             <p className="text-xs font-medium text-muted mb-1">Boldness</p>
-            <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${boldnessColors[profile.boldness_level || "medium"] || boldnessColors.medium}`}>
-              {profile.boldness_level || "medium"}
+            <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${boldnessBadgeClass(profile.boldness_level)}`}>
+              {normalizeBoldness(profile.boldness_level)}
             </span>
           </div>
         </div>
