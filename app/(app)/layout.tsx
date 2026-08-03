@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { expireCookie } from "@/lib/utils/cookies";
 import { Sparkles, Layers, Send, BarChart3, User, LogOut } from "lucide-react";
 
 const navItems = [
@@ -19,6 +20,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
+    // Invalidate the cached profile flag. It is not httpOnly and lives for 24h,
+    // so on a shared browser the next user who signs in would otherwise inherit
+    // it and skip the onboarding/profile check in middleware.
+    document.cookie = expireCookie("x-has-profile");
     router.push("/");
     router.refresh();
   }
