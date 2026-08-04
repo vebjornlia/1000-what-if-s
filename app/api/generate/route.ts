@@ -1,8 +1,19 @@
 import { openrouter, MODEL } from "@/lib/ai/openrouter";
 import { createClient } from "@/lib/supabase/server";
 import { getWhatIfGenerationPrompt } from "@/lib/ai/prompts";
+import { parseOpportunities } from "@/lib/utils/opportunities";
 
 export const maxDuration = 60; // Allow up to 60s for AI generation
+
+type Opportunity = {
+  emoji?: string;
+  category?: string;
+  recipient_name?: string;
+  recipient_description?: string;
+  recipient_contact?: string;
+  message_subject?: string;
+  message_body?: string;
+};
 
 export async function POST(request: Request) {
   try {
@@ -52,22 +63,16 @@ export async function POST(request: Request) {
 
     const text = response.choices[0]?.message?.content || "[]";
 
-    let opportunities;
-    try {
-      opportunities = JSON.parse(text);
-    } catch {
-      const match = text.match(/\[[\s\S]*\]/);
-      if (match) {
-        opportunities = JSON.parse(match[0]);
-      } else {
-        return Response.json(
-          { error: "Failed to parse AI response", raw: text.slice(0, 200) },
-          { status: 500 }
-        );
-      }
+    const opportunities = parseOpportunities(text);
+
+    if (opportunities === null) {
+      return Response.json(
+        { error: "Failed to parse AI response", raw: text.slice(0, 200) },
+        { status: 500 }
+      );
     }
 
-    if (!Array.isArray(opportunities) || opportunities.length === 0) {
+    if (opportunities.length === 0) {
       return Response.json(
         { error: "AI returned no opportunities", raw: text.slice(0, 200) },
         { status: 500 }
@@ -83,32 +88,19 @@ export async function POST(request: Request) {
     const startIndex = count || 0;
 
     // Build rows
-    const rows = opportunities.map(
-      (
-        opp: {
-          emoji?: string;
-          category?: string;
-          recipient_name?: string;
-          recipient_description?: string;
-          recipient_contact?: string;
-          message_subject?: string;
-          message_body?: string;
-        },
-        i: number
-      ) => ({
-        user_id: user.id,
-        batch_number: batchNumber,
-        card_index: startIndex + i,
-        emoji: opp.emoji || "✨",
-        category: opp.category || "General",
-        recipient_name: opp.recipient_name || "Unknown",
-        recipient_description: opp.recipient_description || "",
-        recipient_contact: opp.recipient_contact || "",
-        message_subject: opp.message_subject || "",
-        message_body: opp.message_body || "",
-        status: "unseen",
-      })
-    );
+    const rows = (opportunities as Opportunity[]).map((opp, i) => ({
+      user_id: user.id,
+      batch_number: batchNumber,
+      card_index: startIndex + i,
+      emoji: opp.emoji || "✨",
+      category: opp.category || "General",
+      recipient_name: opp.recipient_name || "Unknown",
+      recipient_description: opp.recipient_description || "",
+      recipient_contact: opp.recipient_contact || "",
+      message_subject: opp.message_subject || "",
+      message_body: opp.message_body || "",
+      status: "unseen",
+    }));
 
     const { error: insertError } = await supabase.from("what_ifs").insert(rows);
 
