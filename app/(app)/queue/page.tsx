@@ -6,6 +6,7 @@ import QueueList from "@/components/queue/QueueList";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import { Mail, Loader2 } from "lucide-react";
 import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
+import { partitionSendable } from "@/lib/utils/queueSend";
 
 export default function QueuePage() {
   const [items, setItems] = useState<WhatIf[]>([]);
@@ -79,7 +80,19 @@ export default function QueuePage() {
   }
 
   function handleSendAllViaGmail() {
-    items.forEach((card, i) => {
+    // Only open Gmail for — and mark as sent — cards with a valid recipient
+    // email. Cards with a blank or non-email contact stay in the queue so the
+    // outreach is not silently lost.
+    const { sendable, skipped } = partitionSendable(items);
+
+    if (sendable.length === 0) {
+      alert(
+        "None of these cards have a valid recipient email yet, so nothing was sent. They stay in your queue."
+      );
+      return;
+    }
+
+    sendable.forEach((card, i) => {
       setTimeout(() => {
         openGmailCompose({
           to: card.resolved_contact || card.recipient_contact || "",
@@ -89,12 +102,18 @@ export default function QueuePage() {
       }, i * 500);
     });
 
-    const ids = items.map((i) => i.id);
+    const ids = sendable.map((i) => i.id);
     supabase
       .from("what_ifs")
       .update({ status: "sent", sent_at: new Date().toISOString() })
       .in("id", ids)
-      .then(() => setItems([]));
+      .then(() => setItems(skipped));
+
+    if (skipped.length > 0) {
+      alert(
+        `Opened ${sendable.length} message${sendable.length === 1 ? "" : "s"} in Gmail. ${skipped.length} card${skipped.length === 1 ? "" : "s"} had no valid email and stayed in your queue.`
+      );
+    }
   }
 
   if (loading) {
