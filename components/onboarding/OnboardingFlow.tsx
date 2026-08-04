@@ -8,6 +8,7 @@ import ChatBubble from "./ChatBubble";
 import VoiceInput from "./VoiceInput";
 import ProfileReview, { type Profile } from "./ProfileReview";
 import { createClient } from "@/lib/supabase/client";
+import { interpretProfileSave } from "@/lib/utils/profileSave";
 
 interface Message {
   role: "user" | "assistant";
@@ -21,6 +22,7 @@ export default function OnboardingFlow() {
   const [isLoading, setIsLoading] = useState(false);
   const [phase, setPhase] = useState<Phase>("chat");
   const [extractedProfile, setExtractedProfile] = useState<Profile | null>(null);
+  const [saveError, setSaveError] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const supabaseRef = useRef(createClient());
@@ -122,21 +124,36 @@ export default function OnboardingFlow() {
 
   async function handleConfirmProfile(editedProfile: Profile) {
     setPhase("saving");
+    setSaveError("");
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from("profiles").upsert({
-          id: user.id,
-          raw_conversation: messages,
-          structured_profile: editedProfile,
-          display_name: editedProfile.display_name || "Friend",
-        });
-        document.cookie = "x-has-profile=1; path=/; max-age=86400";
+      // supabase.upsert() resolves with { error } rather than throwing, so we
+      // must inspect it explicitly — otherwise a failed save (or a signed-out
+      // user) would still set the has-profile cookie and send the user to a
+      // deck whose generation fails with "No profile found."
+      const { error } = user
+        ? await supabase.from("profiles").upsert({
+            id: user.id,
+            raw_conversation: messages,
+            structured_profile: editedProfile,
+            display_name: editedProfile.display_name || "Friend",
+          })
+        : { error: null };
+
+      const outcome = interpretProfileSave(user, error);
+      if (!outcome.ok) {
+        console.error("Save failed:", error?.message ?? "no authenticated user");
+        setSaveError(outcome.message);
+        setPhase("review");
+        return;
       }
+
+      document.cookie = "x-has-profile=1; path=/; max-age=86400";
       router.push("/deck?generate=true");
     } catch (err) {
       console.error("Save failed:", err);
+      setSaveError("We couldn't save your profile. Please try again.");
       setPhase("review");
     }
   }
@@ -144,6 +161,7 @@ export default function OnboardingFlow() {
   function handleRedo() {
     setMessages([]);
     setExtractedProfile(null);
+    setSaveError("");
     setPhase("chat");
     initialSent.current = false;
   }
@@ -183,6 +201,11 @@ export default function OnboardingFlow() {
   if (phase === "review" && extractedProfile) {
     return (
       <div className="min-h-screen bg-[#FCFCFA] px-4 py-10">
+        {saveError && (
+          <p className="mx-auto mb-4 max-w-xl text-center text-sm text-red-500">
+            {saveError}
+          </p>
+        )}
         <ProfileReview
           profile={extractedProfile}
           onConfirm={handleConfirmProfile}
