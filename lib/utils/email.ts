@@ -73,3 +73,25 @@ export function getMessageSubject(card: {
   if (subject) return subject;
   return `Quick question for ${card.recipient_name}`;
 }
+
+/**
+ * Builds the text placed on the clipboard by the deck's "Copy message" button.
+ *
+ * The composed draft must match what the app would actually SEND. The send
+ * path routes every subject through `getMessageSubject`, which trims and falls
+ * back to a default when the AI returns a blank/whitespace subject. The deck's
+ * copy button used to read `card.message_subject` raw, so a whitespace-only
+ * subject produced a blank "Subject:   " line and a missing subject dropped
+ * the subject line entirely — a weaker draft than the one the user sends.
+ * Reuse `getMessageSubject` here so copy and send stay consistent.
+ */
+export function buildCardCopyText(card: {
+  recipient_name: string;
+  message_subject?: string;
+  message_body?: string;
+  category?: string;
+}): string {
+  const subject = getMessageSubject(card);
+  const body = (card.message_body ?? "").trim();
+  return `Subject: ${subject}\n\n${body}`;
+}

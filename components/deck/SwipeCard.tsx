@@ -4,6 +4,7 @@ import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useState } from "react";
 import { Copy, Check, Mail, ExternalLink } from "lucide-react";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
+import { buildCardCopyText } from "@/lib/utils/email";
 
 export default function SwipeCard({
   card,
@@ -38,9 +39,10 @@ export default function SwipeCard({
   }
 
   async function handleCopy() {
-    const text = card.message_subject
-      ? `Subject: ${card.message_subject}\n\n${card.message_body}`
-      : card.message_body;
+    // Compose the same subject the app would actually send (trimmed, with a
+    // default fallback) so a blank/whitespace AI subject never leaks a blank
+    // "Subject:" line into the copied draft.
+    const text = buildCardCopyText(card);
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
