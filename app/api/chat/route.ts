@@ -1,5 +1,6 @@
 import { openrouter, MODEL } from "@/lib/ai/openrouter";
 import { ONBOARDING_SYSTEM_PROMPT, PROFILE_EXTRACTION_PROMPT } from "@/lib/ai/prompts";
+import { parseAIObject } from "@/lib/utils/aiJson";
 
 export const maxDuration = 30;
 
@@ -24,14 +25,10 @@ export async function POST(request: Request) {
 
       const text = response.choices[0]?.message?.content || "{}";
 
-      // Try to parse, handling markdown code blocks
-      let profile;
-      try {
-        profile = JSON.parse(text);
-      } catch {
-        const match = text.match(/\{[\s\S]*\}/);
-        profile = match ? JSON.parse(match[0]) : {};
-      }
+      // The AI response is untrusted: it may be prose, a markdown-fenced block,
+      // or malformed JSON. parseAIObject degrades to {} on any failure so a bad
+      // response yields an empty profile instead of crashing the request.
+      const profile = parseAIObject(text);
 
       return Response.json({ profile });
     }
