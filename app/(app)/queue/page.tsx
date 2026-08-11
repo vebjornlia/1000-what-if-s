@@ -6,12 +6,14 @@ import QueueList from "@/components/queue/QueueList";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import { Mail, Loader2 } from "lucide-react";
 import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
+import { hasPendingDiscovery } from "@/lib/utils/queuePending";
 
 export default function QueuePage() {
   const [items, setItems] = useState<WhatIf[]>([]);
   const [loading, setLoading] = useState(true);
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
+  const itemsRef = useRef<WhatIf[]>([]);
 
   const fetchQueue = useCallback(async () => {
     setLoading(true);
@@ -24,20 +26,23 @@ export default function QueuePage() {
     setLoading(false);
   }, [supabase]);
 
+  // Keep a ref to the latest items so the polling interval can read them
+  // without listing `items` as a dependency below — doing so would re-run the
+  // effect (and its unconditional fetchQueue) on every fetch result, since
+  // fetchQueue replaces `items` with a new array each time, creating an
+  // unbounded refetch loop instead of a 3s poll.
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
   // Poll for email discovery updates
   useEffect(() => {
     fetchQueue();
     const interval = setInterval(() => {
-      const hasPending = items.some(
-        (i) =>
-          !i.email_discovery_status ||
-          i.email_discovery_status === "pending" ||
-          i.email_discovery_status === "searching"
-      );
-      if (hasPending) fetchQueue();
+      if (hasPendingDiscovery(itemsRef.current)) fetchQueue();
     }, 3000);
     return () => clearInterval(interval);
-  }, [fetchQueue, items]);
+  }, [fetchQueue]);
 
   async function handleRemove(id: string) {
     await supabase.from("what_ifs").update({ status: "skipped" }).eq("id", id);
