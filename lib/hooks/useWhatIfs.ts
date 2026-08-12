@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { shouldRefetchDeck } from "@/lib/utils/deckRefetch";
 
 export interface DiscoveredEmail {
   email: string;
@@ -36,20 +37,33 @@ export function useWhatIfs() {
   const [totalCount, setTotalCount] = useState(0);
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
+  const fetchingRef = useRef(false);
 
-  const fetchCards = useCallback(async () => {
-    setLoading(true);
-    const { data, count } = await supabase
-      .from("what_ifs")
-      .select("*", { count: "exact" })
-      .eq("status", "unseen")
-      .order("card_index", { ascending: true })
-      .limit(20);
+  // `background: true` tops the deck up quietly — it does NOT toggle the global
+  // `loading` flag (which would flash a full-screen loader mid-swipe) and skips
+  // if a fetch is already in flight, so the low-cards top-up can't stack up.
+  const fetchCards = useCallback(
+    async ({ background = false }: { background?: boolean } = {}) => {
+      if (background && fetchingRef.current) return;
+      fetchingRef.current = true;
+      if (!background) setLoading(true);
+      try {
+        const { data, count } = await supabase
+          .from("what_ifs")
+          .select("*", { count: "exact" })
+          .eq("status", "unseen")
+          .order("card_index", { ascending: true })
+          .limit(20);
 
-    setCards((data as WhatIf[]) || []);
-    setTotalCount(count || 0);
-    setLoading(false);
-  }, [supabase]);
+        setCards((data as WhatIf[]) || []);
+        setTotalCount(count || 0);
+      } finally {
+        if (!background) setLoading(false);
+        fetchingRef.current = false;
+      }
+    },
+    [supabase]
+  );
 
   useEffect(() => {
     fetchCards();
@@ -90,9 +104,11 @@ export function useWhatIfs() {
       }).catch(() => {});
     }
 
-    // Fetch more if running low
-    if (cards.length <= 5) {
-      fetchCards();
+    // Fetch more if running low, quietly in the background (no loader flash).
+    // `cards` is this render's snapshot, so the swiped card is still counted —
+    // subtract it to get the true remaining stack size.
+    if (shouldRefetchDeck(cards.length - 1)) {
+      fetchCards({ background: true });
     }
   }
 
