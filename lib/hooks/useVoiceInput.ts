@@ -79,6 +79,21 @@ export function useVoiceInput(): UseVoiceInputReturn {
     setIsListening(false);
   }, []);
 
+  // Release the microphone if the component unmounts while still listening
+  // (e.g. the user navigates away from onboarding mid-recording). Detach the
+  // handlers first so the teardown doesn't setState on an unmounted component.
+  useEffect(() => {
+    return () => {
+      const recognition = recognitionRef.current;
+      if (!recognition) return;
+      recognition.onresult = null;
+      recognition.onend = null;
+      recognition.onerror = null;
+      recognition.abort();
+      recognitionRef.current = null;
+    };
+  }, []);
+
   const resetTranscript = useCallback(() => {
     setTranscript("");
     setInterimTranscript("");
