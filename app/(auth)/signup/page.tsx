@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { resolveSignupNext } from "@/lib/utils/signupNext";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -18,7 +19,7 @@ export default function SignupPage() {
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -28,6 +29,15 @@ export default function SignupPage() {
 
     if (error) {
       setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // Without a session (email confirmation on, or email already registered)
+    // the protected /onboarding route just bounces back to /login — prompt the
+    // user to confirm via email instead.
+    if (resolveSignupNext(data).kind === "confirm") {
+      setError("Check your email to confirm your account, then sign in.");
       setLoading(false);
       return;
     }
@@ -78,7 +88,17 @@ export default function SignupPage() {
             />
           </div>
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && (
+            <p
+              className={`text-sm ${
+                error.includes("Check your email")
+                  ? "text-accent-teal"
+                  : "text-red-500"
+              }`}
+            >
+              {error}
+            </p>
+          )}
 
           <button
             type="submit"
