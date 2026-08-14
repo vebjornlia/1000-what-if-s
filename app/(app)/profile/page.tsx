@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ProfileReview, { type Profile } from "@/components/onboarding/ProfileReview";
+import { profileSaveResult } from "@/lib/utils/profileSaveResult";
 import { Loader2 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -34,16 +35,17 @@ export default function ProfilePage() {
   async function handleSave(editedProfile: Profile) {
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from("profiles").update({
-        structured_profile: editedProfile,
-        display_name: (editedProfile.display_name as string) || "Friend",
-        updated_at: new Date().toISOString(),
-      }).eq("id", user.id);
-    }
+    const result = user
+      ? await supabase.from("profiles").update({
+          structured_profile: editedProfile,
+          display_name: (editedProfile.display_name as string) || "Friend",
+          updated_at: new Date().toISOString(),
+        }).eq("id", user.id)
+      : { error: { message: "Your session expired. Please sign in again." } };
     setSaving(false);
-    // Show a brief success state
-    alert("Profile saved!");
+    // Only claim success if the write actually succeeded — never tell the user
+    // their edits were saved when they silently were not.
+    alert(profileSaveResult(result).message);
   }
 
   async function handleRedo() {
