@@ -1,6 +1,7 @@
 import { openrouter, MODEL } from "@/lib/ai/openrouter";
 import { createClient } from "@/lib/supabase/server";
 import { getWhatIfGenerationPrompt } from "@/lib/ai/prompts";
+import { parseOpportunityList } from "@/lib/utils/opportunityList";
 
 export const maxDuration = 60; // Allow up to 60s for AI generation
 
@@ -52,22 +53,20 @@ export async function POST(request: Request) {
 
     const text = response.choices[0]?.message?.content || "[]";
 
-    let opportunities;
-    try {
-      opportunities = JSON.parse(text);
-    } catch {
-      const match = text.match(/\[[\s\S]*\]/);
-      if (match) {
-        opportunities = JSON.parse(match[0]);
-      } else {
-        return Response.json(
-          { error: "Failed to parse AI response", raw: text.slice(0, 200) },
-          { status: 500 }
-        );
-      }
-    }
+    // The model is asked for a bare JSON array but may wrap it in code fences,
+    // prose, or an object (e.g. { opportunities: [...] }). Recover the array in
+    // all those shapes; an empty result means no usable opportunities.
+    const opportunities = parseOpportunityList<{
+      emoji?: string;
+      category?: string;
+      recipient_name?: string;
+      recipient_description?: string;
+      recipient_contact?: string;
+      message_subject?: string;
+      message_body?: string;
+    }>(text);
 
-    if (!Array.isArray(opportunities) || opportunities.length === 0) {
+    if (opportunities.length === 0) {
       return Response.json(
         { error: "AI returned no opportunities", raw: text.slice(0, 200) },
         { status: 500 }
@@ -84,18 +83,7 @@ export async function POST(request: Request) {
 
     // Build rows
     const rows = opportunities.map(
-      (
-        opp: {
-          emoji?: string;
-          category?: string;
-          recipient_name?: string;
-          recipient_description?: string;
-          recipient_contact?: string;
-          message_subject?: string;
-          message_body?: string;
-        },
-        i: number
-      ) => ({
+      (opp, i) => ({
         user_id: user.id,
         batch_number: batchNumber,
         card_index: startIndex + i,
