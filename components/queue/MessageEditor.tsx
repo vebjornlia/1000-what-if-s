@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Check } from "lucide-react";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
+import { initialRecipient } from "@/lib/utils/messageRecipient";
 
 export default function MessageEditor({
   card,
@@ -13,7 +14,7 @@ export default function MessageEditor({
   onSave: (body: string, subject: string, contact?: string) => void;
   onClose: () => void;
 }) {
-  const [to, setTo] = useState(card.resolved_contact || card.recipient_contact || "");
+  const [to, setTo] = useState(initialRecipient(card));
   const [subject, setSubject] = useState(card.message_subject || "");
   const [body, setBody] = useState(card.message_body);
 
