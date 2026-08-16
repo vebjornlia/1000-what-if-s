@@ -6,10 +6,12 @@ import QueueList from "@/components/queue/QueueList";
 import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import { Mail, Loader2 } from "lucide-react";
 import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
+import { partitionSendable } from "@/lib/utils/sendableQueue";
 
 export default function QueuePage() {
   const [items, setItems] = useState<WhatIf[]>([]);
   const [loading, setLoading] = useState(true);
+  const [skippedNotice, setSkippedNotice] = useState(0);
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
 
@@ -79,22 +81,30 @@ export default function QueuePage() {
   }
 
   function handleSendAllViaGmail() {
-    items.forEach((card, i) => {
+    // Only cards with a valid email are opened in Gmail and marked sent. Cards
+    // with no resolvable address stay in the queue so those leads aren't
+    // silently lost the moment "Open All in Gmail" is tapped.
+    const { sendable, skipped } = partitionSendable(items);
+    setSkippedNotice(skipped.length);
+
+    sendable.forEach(({ card, to }, i) => {
       setTimeout(() => {
         openGmailCompose({
-          to: card.resolved_contact || card.recipient_contact || "",
+          to,
           subject: getMessageSubject(card),
           body: card.message_body,
         });
       }, i * 500);
     });
 
-    const ids = items.map((i) => i.id);
+    if (sendable.length === 0) return;
+
+    const ids = sendable.map(({ card }) => card.id);
     supabase
       .from("what_ifs")
       .update({ status: "sent", sent_at: new Date().toISOString() })
       .in("id", ids)
-      .then(() => setItems([]));
+      .then(() => setItems(skipped));
   }
 
   if (loading) {
@@ -126,6 +136,13 @@ export default function QueuePage() {
           </button>
         )}
       </div>
+
+      {skippedNotice > 0 && (
+        <p className="mb-4 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-600">
+          {skippedNotice} {skippedNotice === 1 ? "card has" : "cards have"} no
+          email address yet and stayed in the queue.
+        </p>
+      )}
 
       <QueueList
         items={items}
