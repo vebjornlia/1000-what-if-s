@@ -1,5 +1,6 @@
 import { openrouter, MODEL } from "@/lib/ai/openrouter";
 import { ONBOARDING_SYSTEM_PROMPT, PROFILE_EXTRACTION_PROMPT } from "@/lib/ai/prompts";
+import { parseProfileJson } from "@/lib/utils/profileJson";
 
 export const maxDuration = 30;
 
@@ -24,14 +25,9 @@ export async function POST(request: Request) {
 
       const text = response.choices[0]?.message?.content || "{}";
 
-      // Try to parse, handling markdown code blocks
-      let profile;
-      try {
-        profile = JSON.parse(text);
-      } catch {
-        const match = text.match(/\{[\s\S]*\}/);
-        profile = match ? JSON.parse(match[0]) : {};
-      }
+      // Parse defensively: handles clean JSON, fenced code blocks, and JSON
+      // embedded in prose, and never throws (falls back to {}).
+      const profile = parseProfileJson(text);
 
       return Response.json({ profile });
     }
