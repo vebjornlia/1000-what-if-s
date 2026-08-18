@@ -28,6 +28,18 @@ export function openMailto(options: {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
+ * True when `value` is a syntactically valid email address.
+ *
+ * A recipient contact is frequently a URL or social handle (e.g.
+ * "x.com/@user" or "@handle") that contains an "@" but is NOT an email, so a
+ * bare `value.includes("@")` check mislabels those as emails. Use this for UI
+ * decisions like whether to show a mail icon vs. a generic link icon.
+ */
+export function isEmailAddress(value: unknown): boolean {
+  return typeof value === "string" && EMAIL_RE.test(value.trim());
+}
+
+/**
  * Picks the best contact email from a list of AI-discovered candidates.
  *
  * The AI response is untrusted: it may not be an array, may contain entries

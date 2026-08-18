@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveBestEmail, getMessageSubject } from "./email.ts";
+import { resolveBestEmail, getMessageSubject, isEmailAddress } from "./email.ts";
 
 test("returns the first valid candidate as found", () => {
   const result = resolveBestEmail(
@@ -52,6 +52,26 @@ test("tolerates non-array input from the model", () => {
 test("trims surrounding whitespace on the chosen email", () => {
   const result = resolveBestEmail([{ email: "  spaced@x.com  " }]);
   assert.equal(result.bestEmail, "spaced@x.com");
+});
+
+test("isEmailAddress accepts real emails, trimming surrounding whitespace", () => {
+  for (const good of ["press@show.com", "first.last@sub.domain.co", "  a@b.io  "]) {
+    assert.equal(isEmailAddress(good), true, good);
+  }
+});
+
+test("isEmailAddress rejects @-containing non-emails (handles and URLs)", () => {
+  // These all contain "@" so the old `.includes("@")` check wrongly flagged
+  // them as emails and showed a mail icon.
+  for (const bad of ["@handle", "x.com/@user", "hello@", "@", "a@b"]) {
+    assert.equal(isEmailAddress(bad), false, bad);
+  }
+});
+
+test("isEmailAddress rejects non-string / empty input", () => {
+  for (const bad of [null, undefined, 42, {}, "", "   ", "linkedin.com/in/ada"]) {
+    assert.equal(isEmailAddress(bad as unknown), false);
+  }
 });
 
 test("getMessageSubject uses the provided subject when present", () => {
