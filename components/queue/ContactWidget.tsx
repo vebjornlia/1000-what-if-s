@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Mail, AlertCircle, Loader2, ChevronDown, ChevronUp, Pencil } from "lucide-react";
 import type { WhatIf, DiscoveredEmail } from "@/lib/hooks/useWhatIfs";
+import { isValidManualEmail } from "@/lib/utils/manualEmail";
 
 const confidenceColors = {
   high: "bg-green-100 text-green-700",
@@ -38,8 +39,8 @@ export default function ContactWidget({
           className="flex-1 rounded-md border border-border px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-accent-purple/50"
           autoFocus
           onKeyDown={(e) => {
-            if (e.key === "Enter" && manualEmail.includes("@")) {
-              onSetManual(manualEmail);
+            if (e.key === "Enter" && isValidManualEmail(manualEmail)) {
+              onSetManual(manualEmail.trim());
               setEditing(false);
             }
             if (e.key === "Escape") setEditing(false);
@@ -47,8 +48,8 @@ export default function ContactWidget({
         />
         <button
           onClick={() => {
-            if (manualEmail.includes("@")) {
-              onSetManual(manualEmail);
+            if (isValidManualEmail(manualEmail)) {
+              onSetManual(manualEmail.trim());
               setEditing(false);
             }
           }}
