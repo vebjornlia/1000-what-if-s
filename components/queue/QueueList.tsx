@@ -7,6 +7,7 @@ import type { WhatIf } from "@/lib/hooks/useWhatIfs";
 import MessageEditor from "./MessageEditor";
 import ContactWidget from "./ContactWidget";
 import { openGmailCompose, getMessageSubject } from "@/lib/utils/email";
+import { isSendableEmail } from "@/lib/utils/gmailSend";
 
 function getEffectiveEmail(card: WhatIf): string {
   return card.resolved_contact || card.recipient_contact || "";
@@ -38,12 +39,19 @@ export default function QueueList({
   }
 
   function handleSendViaGmail(card: WhatIf) {
+    const email = getEffectiveEmail(card);
+    const sendable = isSendableEmail(email);
     openGmailCompose({
-      to: getEffectiveEmail(card),
+      // Only prefill a real email; a blank/non-email contact opens a compose
+      // window the user can address themselves.
+      to: sendable ? email : "",
       subject: getMessageSubject(card),
       body: card.message_body,
     });
-    onMarkSent(card.id);
+    // Only mark the card as sent when there was a real address to send to.
+    // Otherwise the lead would silently vanish from the queue after Gmail
+    // opened blank, and the user could never recover it.
+    if (sendable) onMarkSent(card.id);
   }
 
   if (items.length === 0) {
@@ -94,7 +102,7 @@ export default function QueueList({
                     className="mt-3 flex items-center gap-1.5 rounded-lg gradient-bg px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
                   >
                     <Mail className="h-3 w-3" />
-                    {getEffectiveEmail(card) ? "Send via Gmail" : "Open in Gmail"}
+                    {isSendableEmail(getEffectiveEmail(card)) ? "Send via Gmail" : "Open in Gmail"}
                   </button>
                 </div>
 
