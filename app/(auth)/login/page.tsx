@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { buildAuthCallbackUrl } from "@/lib/utils/authRedirect";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -35,7 +36,10 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signInWithOtp({ email });
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: buildAuthCallbackUrl(window.location.origin) },
+    });
 
     if (error) {
       setError(error.message);
