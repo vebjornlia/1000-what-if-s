@@ -26,7 +26,7 @@ export default function Marquee() {
           </span>
         ))}
       </div>
-      <style jsx>{`
+      <style jsx global>{`
         @keyframes marquee {
           from { transform: translateX(0); }
           to { transform: translateX(-50%); }
