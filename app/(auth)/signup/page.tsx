@@ -4,12 +4,14 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { interpretSignupResult } from "@/lib/utils/signupResult";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const router = useRouter();
   const supabase = createClient();
 
@@ -17,8 +19,9 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setNotice("");
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -28,6 +31,22 @@ export default function SignupPage() {
 
     if (error) {
       setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    const outcome = interpretSignupResult(data);
+
+    if (outcome === "already_registered") {
+      setError("An account with this email already exists. Try signing in instead.");
+      setLoading(false);
+      return;
+    }
+
+    if (outcome === "needs_confirmation") {
+      // No session yet — email confirmation is required. Pushing to the
+      // protected /onboarding route here would just bounce the user to login.
+      setNotice("Check your email to confirm your account, then sign in.");
       setLoading(false);
       return;
     }
@@ -79,6 +98,7 @@ export default function SignupPage() {
           </div>
 
           {error && <p className="text-sm text-red-500">{error}</p>}
+          {notice && <p className="text-sm text-accent-teal">{notice}</p>}
 
           <button
             type="submit"
