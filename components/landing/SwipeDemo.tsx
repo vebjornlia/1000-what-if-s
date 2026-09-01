@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { getSwipeDecision } from "@/lib/utils/swipeDecision";
 
 const demoCards = [
   {
@@ -132,10 +133,11 @@ function DemoCard({
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.8}
       onDragEnd={(_, info) => {
-        if (info.offset.x > 100) {
+        const decision = getSwipeDecision(info.offset.x, info.velocity.x);
+        if (decision === "right") {
           animate(x, 500, { duration: 0.3 });
           setTimeout(onSwipe, 200);
-        } else if (info.offset.x < -100) {
+        } else if (decision === "left") {
           animate(x, -500, { duration: 0.3 });
           setTimeout(onSwipe, 200);
         } else {
