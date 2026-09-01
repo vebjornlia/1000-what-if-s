@@ -16,17 +16,22 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function fetchProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const { data } = await supabase
-        .from("profiles")
-        .select("structured_profile")
-        .eq("id", user.id)
-        .single();
+        const { data } = await supabase
+          .from("profiles")
+          .select("structured_profile")
+          .eq("id", user.id)
+          .single();
 
-      setProfile(data?.structured_profile || null);
-      setLoading(false);
+        setProfile(data?.structured_profile || null);
+      } finally {
+        // Always clear the spinner — even when there is no signed-in user or a
+        // Supabase call throws — so the page can never get stuck loading forever.
+        setLoading(false);
+      }
     }
     fetchProfile();
   }, [supabase]);
