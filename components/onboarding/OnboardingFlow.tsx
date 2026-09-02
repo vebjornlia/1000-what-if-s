@@ -8,6 +8,7 @@ import ChatBubble from "./ChatBubble";
 import VoiceInput from "./VoiceInput";
 import ProfileReview, { type Profile } from "./ProfileReview";
 import { createClient } from "@/lib/supabase/client";
+import { parseAssistantMessage } from "@/lib/utils/interview";
 
 interface Message {
   role: "user" | "assistant";
@@ -53,7 +54,8 @@ export default function OnboardingFlow() {
         });
         const data = await res.json();
         if (data.message) {
-          setMessages([{ role: "assistant", content: cleanMessage(data.message) }]);
+          const { display } = parseAssistantMessage(data.message);
+          setMessages([{ role: "assistant", content: display }]);
         }
       } catch (err) {
         console.error("Greeting failed:", err);
@@ -63,10 +65,6 @@ export default function OnboardingFlow() {
 
     greet();
   }, []);
-
-  function cleanMessage(text: string) {
-    return text.replace(/\[INTERVIEW_COMPLETE\]/g, "").trim();
-  }
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -84,13 +82,13 @@ export default function OnboardingFlow() {
           body: JSON.stringify({ messages: updated }),
         });
         const data = await res.json();
-        const rawMessage = data.message || "";
-        const aiMsg: Message = { role: "assistant", content: cleanMessage(rawMessage) };
+        const { display, isComplete } = parseAssistantMessage(data.message);
+        const aiMsg: Message = { role: "assistant", content: display };
         const withAi = [...updated, aiMsg];
         setMessages(withAi);
 
         // Check if AI signaled completion
-        if (rawMessage.includes("[INTERVIEW_COMPLETE]")) {
+        if (isComplete) {
           setTimeout(() => handleExtract(withAi), 2000);
         }
       } catch (err) {
