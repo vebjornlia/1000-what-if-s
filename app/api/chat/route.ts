@@ -1,5 +1,6 @@
 import { openrouter, MODEL } from "@/lib/ai/openrouter";
 import { ONBOARDING_SYSTEM_PROMPT, PROFILE_EXTRACTION_PROMPT } from "@/lib/ai/prompts";
+import { parseProfile } from "@/lib/utils/profileExtract";
 
 export const maxDuration = 30;
 
@@ -24,14 +25,11 @@ export async function POST(request: Request) {
 
       const text = response.choices[0]?.message?.content || "{}";
 
-      // Try to parse, handling markdown code blocks
-      let profile;
-      try {
-        profile = JSON.parse(text);
-      } catch {
-        const match = text.match(/\{[\s\S]*\}/);
-        profile = match ? JSON.parse(match[0]) : {};
-      }
+      // Recover the profile object defensively: the model may wrap it in
+      // markdown, add prose, or return non-JSON. parseProfile never throws, so
+      // a malformed response degrades to an empty profile instead of a 500 that
+      // would blank the onboarding review screen.
+      const profile = parseProfile(text);
 
       return Response.json({ profile });
     }
