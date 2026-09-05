@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveBestEmail, getMessageSubject } from "./email.ts";
+import { resolveBestEmail, getMessageSubject, isEmailContact } from "./email.ts";
 
 test("returns the first valid candidate as found", () => {
   const result = resolveBestEmail(
@@ -52,6 +52,32 @@ test("tolerates non-array input from the model", () => {
 test("trims surrounding whitespace on the chosen email", () => {
   const result = resolveBestEmail([{ email: "  spaced@x.com  " }]);
   assert.equal(result.bestEmail, "spaced@x.com");
+});
+
+test("isEmailContact accepts a valid email address", () => {
+  for (const email of ["host@show.com", "  spaced@x.com  ", "a.b@sub.domain.io"]) {
+    assert.equal(isEmailContact(email), true);
+  }
+});
+
+test("isEmailContact rejects URLs and handles that merely contain '@'", () => {
+  for (const contact of [
+    "https://x.com/@user",
+    "@handle",
+    "https://example.com/contact",
+    "twitter.com/user",
+    "not-an-email",
+    "",
+    "   ",
+  ]) {
+    assert.equal(isEmailContact(contact), false);
+  }
+});
+
+test("isEmailContact rejects non-string input", () => {
+  for (const bad of [null, undefined, 42, {}, ["x@y.com"]]) {
+    assert.equal(isEmailContact(bad), false);
+  }
 });
 
 test("getMessageSubject uses the provided subject when present", () => {
